@@ -1,7 +1,7 @@
 /**
  * @file shrink-image.ts 테스트
  *
- * 이미지 줄이기의 계산(긴 변 1600px에 맞추기, 확장자 바꾸기, 크기 글자)과
+ * 이미지 줄이기의 계산(긴 변 800px에 맞추기, 확장자 바꾸기, 크기 글자)과
  * 줄이지 않는 때(GIF, 브라우저가 읽지 못하는 이미지)를 확인해요.
  * 실제로 그림판(canvas)에 그려 JPG로 줄이는 일은 jsdom(가짜 브라우저)이 하지 못해서, 진짜 브라우저 E2E에서 확인해요
  * (e2e/admin.spec.ts의 "큰 사진은 줄여서 올린다").
@@ -17,20 +17,24 @@ import { describe, expect, it } from "vitest";
 import { fitWithin, MAX_IMAGE_SIDE, shrinkImage, withExtension } from "./shrink-image";
 
 describe("fitWithin", () => {
-  it("긴 변이 1600px를 넘으면 같은 비율로 줄인다(가로·세로 어느 쪽이 길어도)", () => {
-    expect(fitWithin(4000, 3000)).toEqual({ width: 1600, height: 1200 });
-    // 세로가 긴 경우: 1000 × (1600 / 3000) = 533.3… → 반올림해서 533
-    expect(fitWithin(1000, 3000)).toEqual({ width: 533, height: MAX_IMAGE_SIDE });
+  it("긴 변의 최대 길이는 800px이다(목록 썸네일 70px, 글쓰기 미리보기 224px를 고해상도 화면에서도 넉넉히 채우는 크기)", () => {
+    expect(MAX_IMAGE_SIDE).toBe(800);
+  });
+
+  it("긴 변이 800px를 넘으면 같은 비율로 줄인다(가로·세로 어느 쪽이 길어도)", () => {
+    expect(fitWithin(4000, 3000)).toEqual({ width: 800, height: 600 });
+    // 세로가 긴 포스터(2:3): 960 × (800 / 1420) = 540.8… → 반올림해서 541
+    expect(fitWithin(960, 1420)).toEqual({ width: 541, height: MAX_IMAGE_SIDE });
   });
 
   it("이미 작으면 그대로 둔다", () => {
-    expect(fitWithin(800, 600)).toEqual({ width: 800, height: 600 });
-    // 딱 1600px이면 줄이지 않아요(경계 값).
-    expect(fitWithin(1600, 1600)).toEqual({ width: 1600, height: 1600 });
+    expect(fitWithin(600, 400)).toEqual({ width: 600, height: 400 });
+    // 딱 800px이면 줄이지 않아요(경계 값).
+    expect(fitWithin(800, 800)).toEqual({ width: 800, height: 800 });
   });
 
   it("아주 가는 사진도 1px보다 작아지지 않는다", () => {
-    expect(fitWithin(10000, 1)).toEqual({ width: 1600, height: 1 });
+    expect(fitWithin(10000, 1)).toEqual({ width: 800, height: 1 });
   });
 });
 

@@ -95,12 +95,12 @@ content/reviews/*.json ──next build──> lib/review-data.ts(읽기·검사
 ```
 /login ─(아이디·비밀번호)─> /api/session ─> 세션 쿠키(httpOnly) + 표시 쿠키
 /write ─proxy.ts 확인─> 리뷰 라이터
-   이미지 고르기 ─> 브라우저에서 줄이기(긴 변 1600px, JPG)
+   이미지 고르기 ─> 브라우저에서 줄이기(긴 변 800px, JPG)
    [리뷰 저장] ─> /api/images(이미지 → blob) ─> /api/reviews(검사 → 커밋 하나) ─> GitHub main
                                                        └─> GitHub Actions가 검사한 뒤 Cloudflare에 배포(몇 분)
 ```
 
-- 이미지는 고르는 순간 브라우저에서 줄여요(`lib/shrink-image.ts`). 긴 변 1600px보다 크거나 1MB보다 크면 JPG로 다시 만들고, 이미 작은 JPG·PNG는 그대로예요.
+- 이미지는 고르는 순간 브라우저에서 줄여요(`lib/shrink-image.ts`). 긴 변 800px보다 크거나 256KB보다 크면 JPG로 다시 만들고, 이미 작은 JPG·PNG는 그대로예요. 이미지는 목록 썸네일(최대 70px)과 글쓰기 미리보기(가로 최대 224px)로만 보여서 800px이면 고해상도 화면에서도 넉넉하고, 저장소에 쌓이는 용량도 작아요(포스터 한 장 보통 50~150KB).
 - 이미지는 요청 하나가 하는 일(CPU·메모리)을 작게 나누려고 먼저 올리고(최대 4MB), 리뷰를 저장할 때 원고와 함께 커밋 하나로 묶어요. 이미지 올리기 API는 파일 앞부분(서명 바이트)으로 실제 형식을 확인해요(`checkImage`).
 - 이미지 파일 이름은 `<파일 이름>.확장자`(예: `winter-stop.jpg`)예요. 파일 이름을 이미지보다 나중에 적어도 저장할 때 맞춰져요.
 - 새 리뷰의 "글 쓴 날"은 저장할 때 서버가 한국 시간 날짜와 시각까지 넣어요(`lib/review-form.ts`의 `nowInSeoul`). 같은 날 쓴 리뷰끼리도 최신순이 맞아요.

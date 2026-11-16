@@ -229,10 +229,10 @@ test.describe("글쓴이 기능", () => {
     expect(saved).toMatchObject({ title: "E2E 새 리뷰", year: 2026, creator: "시험작가", category: "도서", rating: 3.5, image: "e2e-new-review.png" });
   });
 
-  test("큰 사진은 줄여서 올린다(이미지는 JPG, 긴 변 1600px)", async ({ page, request }) => {
+  test("큰 사진은 줄여서 올린다(이미지는 JPG, 긴 변 800px)", async ({ page, request }) => {
     await page.goto("/login?next=/write");
     await login(page);
-    // 2400 × 1800 PNG를 브라우저에서 그려 만들어요(긴 변이 1600px보다 커서 줄여야 해요).
+    // 2400 × 1800 PNG를 브라우저에서 그려 만들어요(긴 변이 800px보다 커서 줄여야 해요).
     // <canvas>에 초록→검정 그러데이션을 칠하고 toDataURL로 PNG 글자(base64)를 받아, Buffer(바이트 덩어리)로 바꿔요.
     const bigPng = Buffer.from(
       await page.evaluate(() => {
@@ -256,10 +256,10 @@ test.describe("글쓴이 기능", () => {
     // 고른 뒤 위쪽에 "이미지로 …을 골랐습니다" 같은 안내는 띄우지 않아요(미리보기로 바로 보여요).
     await expect(page.getByRole("group", { name: "이미지" }).locator("img")).toBeVisible();
     await expect(page.getByText(/골랐습니다/)).toHaveCount(0);
-    // 미리보기 그림의 실제 크기가 긴 변 1600px이에요. naturalWidth·naturalHeight는 화면에 그린 크기가 아니라 파일 자체의 크기예요.
+    // 미리보기 그림의 실제 크기가 긴 변 800px이에요. naturalWidth·naturalHeight는 화면에 그린 크기가 아니라 파일 자체의 크기예요.
     // expect.poll: 함수를 되풀이해 부르며 결과가 기대와 같아질 때까지 기다려요(줄이는 일이 끝나기를 기다려요).
     const previewImage = page.getByRole("group", { name: "이미지" }).locator("img");
-    await expect.poll(() => previewImage.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([1600, 1200]);
+    await expect.poll(() => previewImage.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([800, 600]);
 
     // 나머지 칸을 채워 저장하면, 줄인 파일(.jpg)이 올라가요(사진 올리기 API가 파일 앞부분으로 형식도 확인해요).
     await page.getByLabel("제목", { exact: true }).fill("큰 사진 시험");

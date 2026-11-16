@@ -6,14 +6,15 @@
  * 이 파일이 하는 일
  *   글쓰기 화면에서 이미지를 고르면, 올리기 전에 브라우저 안에서 알맞은 크기의 JPG로 줄여요.
  *
- *     휴대폰 사진(4000 × 3000px, 3~8MB) ──줄이기──> 긴 변 1600px JPG(보통 200~500KB)
+ *     휴대폰 사진(4000 × 3000px, 3~8MB) ──줄이기──> 긴 변 800px JPG(보통 50~150KB)
  *
- *   - 블로그에서 이미지는 썸네일(최대 70px)로만 보여서, 1600px이면 고해상도 화면에서도 넉넉해요. 더 크면 무겁기만 해요.
+ *   - 블로그에서 이미지는 목록 썸네일(최대 70px)과 글쓰기 화면의 미리보기(가로 최대 224px)로만 보여요.
+ *     긴 변 800px이면 고해상도 화면(2~3배 촘촘한 화면)에서도 넉넉해요. 더 크면 저장소에 무겁게 쌓이기만 해요.
  *   - 저장소(GitHub)와 이미지 올리기 요청(4MB 한도)이 가벼워지고, 4MB가 넘는 휴대폰 사진도 그대로 고를 수 있어요.
  *   - JPG는 어디서나 보이는 형식이에요. (블로그 화면에서는 이미지 최적화를 거쳐 브라우저에 맞는 가벼운 형식으로 바뀌어 보여요.)
  *
  * 줄이지 않는 때
- *   - 이미 작은 JPG·PNG: 긴 변이 1600px 이하이고 1MB 이하면 화질을 지키려고 그대로 둬요. (WebP·AVIF는 작아도 JPG로 바꿔요.)
+ *   - 이미 작은 JPG·PNG: 긴 변이 800px 이하이고 256KB 이하면 화질을 지키려고 그대로 둬요. (WebP·AVIF는 작아도 JPG로 바꿔요.)
  *   - 브라우저가 읽지 못하는 형식이면 그대로 둬요(이미지 올리기 API가 다시 확인해요).
  *   - 다시 만든 파일이 더 크면 원래 파일을 써요.
  *
@@ -30,10 +31,13 @@
  */
 
 /** 줄인 이미지의 긴 변 최대 길이(px) */
-export const MAX_IMAGE_SIDE = 1600;
+export const MAX_IMAGE_SIDE = 800;
 
-/** 이 크기(1MB) 이하의 파일은(긴 변도 맞으면) 다시 만들지 않아요. 화질을 지키려고요. */
-const KEEP_BYTES = 1024 * 1024;
+/**
+ * 이 크기(256KB) 이하의 파일은(긴 변도 맞으면) 다시 만들지 않아요. 화질을 지키려고요.
+ * 긴 변 800px의 사진 JPG는 보통 이보다 가벼워서, 이보다 무거우면(예: 사진을 담은 PNG) JPG로 다시 만들어 가볍게 해요.
+ */
+const KEEP_BYTES = 256 * 1024;
 
 /** 다시 만들 때의 화질(0~1). 사진은 0.85면 눈으로 차이를 거의 느끼지 못해요. */
 const QUALITY = 0.85;
@@ -43,15 +47,15 @@ const QUALITY = 0.85;
  *
  * @param width 원래 가로(px)
  * @param height 원래 세로(px)
- * @param max 긴 변의 최대 길이. 넘기지 않으면 MAX_IMAGE_SIDE(1600)
+ * @param max 긴 변의 최대 길이. 넘기지 않으면 MAX_IMAGE_SIDE(800)
  * @returns 줄인 { width, height }
  * @example
- * fitWithin(4000, 3000); // { width: 1600, height: 1200 }
- * fitWithin(800, 600);   // { width: 800, height: 600 }
+ * fitWithin(4000, 3000); // { width: 800, height: 600 }
+ * fitWithin(600, 400);   // { width: 600, height: 400 }
  */
 export function fitWithin(width: number, height: number, max = MAX_IMAGE_SIDE): { width: number; height: number } {
   // 줄일 비율: 긴 변을 max로 맞추는 비율. 이미 작으면 1보다 커지므로 Math.min(1, ...)으로 키우지 않게 막아요.
-  // 예: 4000 × 3000 → 1600 / 4000 = 0.4
+  // 예: 4000 × 3000 → 800 / 4000 = 0.2
   const scale = Math.min(1, max / Math.max(width, height));
   // Math.round로 정수 px로 맞추고, 줄여도 1px보다 작아지지 않게 Math.max(1, ...)로 막아요.
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
