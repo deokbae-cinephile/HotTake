@@ -1,0 +1,46 @@
+// @vitest-environment node
+// ↑ 실제 파일을 읽는 테스트라 브라우저 흉내(jsdom) 대신 Node.js 환경에서 돌려요.
+
+/**
+ * @file 실제 원고 검사 (content.test.ts)
+ *
+ * 이 테스트가 하는 일
+ *   실제 원고(content/reviews)와 E2E용 시험 원고(e2e/fixtures/reviews)가 모두 형식에 맞는지 확인해요.
+ *   실제 원고는 글쓴이가 추가·수정·삭제하면서 편수와 내용이 바뀌므로 "형식"만 봐요(0편이어도 돼요).
+ *   시험 원고는 고정이라, 무한 스크롤(10편씩)을 시험할 수 있게 10편보다 많은지도 확인해요.
+ *
+ * 왜 필요할까요?
+ *   원고를 손으로 고쳐 올리면 CI가 테스트를 돌려요.
+ *   원고에 실수가 있으면 이 테스트가 실패하면서 "어느 파일의 어디를 어떻게 고치라"는 메시지를 보여 줘요.
+ *   (글쓰기 화면으로 저장한 원고는 저장하기 전에 같은 규칙으로 검사해요.)
+ *   검사에 실패하면 배포하지 않으므로, 잘못된 원고가 블로그에 올라가지 않아요.
+ *
+ * 테스트 도구 문법
+ *   - await expect(약속).resolves.toBeInstanceOf(Array) : Promise가 성공으로 끝나고, 그 값이 배열인지 확인해요.
+ *                                                        오류로 끝나면(원고에 고칠 곳이 있으면) 테스트가 실패해요.
+ *   - toBeGreaterThan(n)                                 : 숫자가 n보다 큰지 확인해요.
+ *
+ * path.resolve("content/reviews")
+ *   테스트를 돌리는 폴더(프로젝트 맨 위)를 기준으로 전체 경로를 만들어요.
+ */
+
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+
+import { loadReviews } from "./review-data";
+
+describe("content/reviews(실제 원고)", () => {
+  it("모든 원고가 형식에 맞는다(아직 한 편도 없어도 된다)", async () => {
+    // 형식이 틀리면 loadReviews가 어느 파일의 어디가 틀렸는지 담은 오류를 던져 테스트가 실패해요.
+    // 글쓴이가 아직 리뷰를 올리지 않았으면 0편이에요(폴더가 없어도 빈 목록이에요).
+    await expect(loadReviews(path.resolve("content/reviews"))).resolves.toBeInstanceOf(Array);
+  });
+});
+
+describe("e2e/fixtures/reviews(시험 원고)", () => {
+  it("모든 원고가 형식에 맞고, 무한 스크롤(처음 10편, 이어서 10편씩)을 시험할 수 있게 10편보다 많다", async () => {
+    // 시험 원고는 하나라도 틀리면 여기서 오류가 나요. 통과하면 편수까지 확인해요.
+    const reviews = await loadReviews(path.resolve("e2e/fixtures/reviews"));
+    expect(reviews.length).toBeGreaterThan(10);
+  });
+});

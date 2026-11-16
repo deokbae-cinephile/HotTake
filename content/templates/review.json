@@ -1,0 +1,10 @@
+{
+  "title": "한국어 제목",
+  "year": 2026,
+  "creator": "감독 또는 작가 이름",
+  "category": "영화",
+  "rating": 4.5,
+  "oneLiner": "한 줄 평을 씁니다.",
+  "publishedAt": "2026-11-15T21:30:00+09:00",
+  "image": "my-work.jpg"
+}

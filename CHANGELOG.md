@@ -1,0 +1,26 @@
+# 변경 기록
+
+이 프로젝트의 버전별 변경 사항입니다. 버전은 [유의적 버전](https://semver.org/lang/ko/)을 따릅니다.
+
+## 1.0.0 — 2026-11-16
+
+영화·도서 등 여러 작품에 평점과 한 줄 평을 남기는 블로그 HotTake를 처음 공개합니다.
+
+### 방문자
+
+- 작품 목록: 이미지 썸네일(형광 초록 CRT 필터), 제목, 연도·감독 또는 작가, 평점, 한 줄 평을 최신순으로 보여 줍니다.
+- 검색, 분류 필터(전체·영화·도서, 주소 `?category=movie|book`), 정렬(최신순·평점순). 조건은 주소에 남습니다.
+- 처음 10편을 보여 주고, 내려가면 10편씩 더 불러옵니다([n편 더 보기] 단추도 있습니다).
+- 앱으로 설치하고, 한 번 본 처음 화면은 인터넷이 끊겨도 열립니다(PWA).
+
+### 글쓴이
+
+- 로그인(`/login`) 뒤 목록의 [+]로 리뷰를 추가하고, 목록 한 편의 아이콘 단추로 수정·삭제합니다.
+- 글쓰기 화면: 이미지(고르면 브라우저에서 긴 변 1600px JPG로 줄여요)와 콘텐츠 정보(분류(처음 영화), 평점, 제목, 파일 이름, 연도, 감독 또는 작가, 한 줄 평).
+- 저장하면 원고(`content/reviews/<파일 이름>.json`)와 이미지(`public/images/`)가 GitHub에 커밋 하나로 올라가고, 검사를 통과하면 Cloudflare Workers에 다시 배포됩니다.
+
+### 기술
+
+- Next.js 16(App Router) · React 19 · TypeScript 7 · Tailwind CSS 4 · Node.js 26
+- 검사: oxlint · Vitest + Testing Library · Playwright + axe
+- 배포: OpenNext Cloudflare 어댑터 · Wrangler, 도메인 https://deokbae.blog

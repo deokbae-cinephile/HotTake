@@ -1,0 +1,88 @@
+// Cloudflare Workers 설정 (wrangler.jsonc)
+// 읽는 순서: 83/84번째 · 8단계(설정·테스트·배포)
+//   앞: open-next.config.ts → 다음: .github/workflows/ci.yml (전체 순서와 문서 순서: docs/reading-order.md)
+//
+// 이 파일이 하는 일
+//   블로그를 Cloudflare Workers에 올릴 때 쓰는 설정이에요.
+//   워커 이름을 바꾸면 새 워커가 생기고 도메인·비밀 값이 따라오지 않으니 바꾸지 않아요.
+//   wrangler(Cloudflare 명령줄 도구)와 OpenNext 어댑터(open-next.config.ts)가 읽어요.
+//   JSON에 주석을 달 수 있는 JSONC 형식이라 이렇게 설명을 적어 둘 수 있어요.
+//
+// 누가 쓰나요?
+//   pnpm cf:preview(내 컴퓨터에서 Workers처럼 띄워 보기)와 CI의 배포 단계(pnpm exec opennextjs-cloudflare deploy)가 읽어요.
+//   코드에서 import하는 곳은 없어요.
+//
+// 바인딩(binding)이 뭔가요?
+//   워커 코드가 Cloudflare 기능(정적 파일, 이미지 변환 등)을 쓸 수 있게 이어 주는 "이름표"예요.
+//   여기 적은 이름(ASSETS, IMAGES)으로 OpenNext가 만든 워커 코드가 그 기능을 불러요.
+//
+// 비밀 값은 여기에 적지 않아요
+//   ADMIN_ID, ADMIN_PASSWORD_HASH, SESSION_SECRET, GITHUB_CONTENT_TOKEN은
+//   Cloudflare 대시보드 → Workers & Pages → blog → Settings → Variables and Secrets에 "Secret"으로 넣어요.
+//   이 파일은 공개 저장소에 올라가니까요. 순서는 docs/development.md의 "5. 배포"를 보세요.
+{
+  // 편집기가 항목 설명과 자동 완성을 보여 주게 하는 설정 규칙 파일이에요.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // 워커 이름. 대시보드에 보이는 이름이자 기본 주소(blog.<계정 이름>.workers.dev)가 돼요(그 주소는 아래 workers_dev로 닫았어요).
+  "name": "blog",
+  // 워커의 시작 파일: OpenNext가 만든 처리기 그대로예요(opennextjs-cloudflare build가 만들어요).
+  "main": ".open-next/worker.js",
+  // 올리기 전에 워커 코드를 줄여요(빈칸·긴 이름 줄이기). 무료 요금제의 워커 크기 한도(압축 3MB) 안에 넉넉히 들어가게 해요.
+  // 함수 이름은 남겨서(keep_names 기본값) 오류 기록은 그대로 읽을 수 있어요. 지금 크기는 docs/development.md "5장"에 적어 둬요.
+  "minify": true,
+  // 이 날짜 기준의 Workers 런타임(코드를 실제로 돌리는 환경) 동작을 써요.
+  //   날짜를 올리면 동작이 바뀔 수 있어서, 올릴 때는 미리 띄워 보고(pnpm cf:preview) 올려요.
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": [
+    // Node.js 기본 모듈(node:crypto 등)을 쓸 수 있게 해요. 비밀번호 확인(scrypt)과 Next.js 서버에 필요해요.
+    "nodejs_compat",
+    // 워커 안의 fetch가 우리 도메인으로 갈 때도 일반 인터넷 길로 가게 해요(OpenNext가 권하는 값).
+    "global_fetch_strictly_public"
+  ],
+  // 정적 파일: public/의 파일, 빌드 파일(_next/static), 미리 만든 화면의 캐시가 여기에 올라가요.
+  //   정적 파일은 워커 코드를 거치지 않고 Cloudflare가 바로 내줘서 무료이고 빨라요.
+  //   헤더(보안·캐시)는 public/_headers에서 정해요.
+  "assets": {
+    "directory": ".open-next/assets",
+    // 워커 코드가 정적 파일을 읽을 때 쓰는 이름. 미리 만든 화면의 캐시를 여기서 읽어요.
+    "binding": "ASSETS"
+  },
+  // 이미지 최적화(next/image)를 Cloudflare Images로 해요. 무료로 한 달에 서로 다른 변환 5,000개까지 돼요.
+  "images": {
+    "binding": "IMAGES"
+  },
+  // Durable Object 기록(migrations).
+  //   Durable Object는 워커에 붙여 쓰는 작은 저장 공간이에요. 이 블로그 코드는 Durable Object를 쓰지 않아요.
+  //   그래도 워커 "blog"의 Cloudflare 쪽 기록과 이 목록이 처음부터 차례대로 맞아야 배포가 돼요.
+  //   한 번 올린 tag를 고치거나 지우면 배포가 실패하니, 아래 네 줄은 값을 그대로 둬요.
+  //   new_sqlite_classes: 클래스를 만듦, deleted_classes: 클래스와 그 안의 데이터를 지움.
+  //   마지막 두 줄이 앞의 두 클래스를 모두 지워서, 지금은 남아 있는 Durable Object가 없어요.
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ViewCounter"] },
+    { "tag": "v2", "new_sqlite_classes": ["VisitCounter"] },
+    { "tag": "v3", "deleted_classes": ["ViewCounter"] },
+    { "tag": "v4", "deleted_classes": ["VisitCounter"] }
+  ],
+  // 도메인: deokbae.blog와 www.deokbae.blog를 이 워커에 바로 붙여요(Custom Domain).
+  //   배포할 때 Cloudflare가 두 주소의 DNS 기록과 HTTPS 인증서를 알아서 만들어요.
+  //   도메인(영역)은 이 Cloudflare 계정에 있어야 해요(docs/development.md "도메인 연결").
+  //   www 주소도 같은 블로그를 보여 주고, 검색엔진에는 화면마다 대표 주소(https://deokbae.blog/...)를 알려 줘요.
+  "routes": [
+    { "pattern": "deokbae.blog", "custom_domain": true },
+    { "pattern": "www.deokbae.blog", "custom_domain": true }
+  ],
+  // workers.dev 주소(blog.deokbae.workers.dev)는 쓰지 않아요. 블로그 주소를 deokbae.blog 하나로 모아요.
+  //   (routes가 있으면 wrangler가 기본으로 끄지만, 헷갈리지 않게 분명히 적어 둬요.)
+  "workers_dev": false,
+  // 버전마다 생기는 미리보기 주소(<버전>-blog.deokbae.workers.dev)도 쓰지 않아요.
+  //   켜 두면 deokbae.blog에 건 속도 제한 규칙을 거치지 않는 길이 생겨요.
+  //   이 줄을 빼면 wrangler가 대시보드에 있는 지금 설정을 바꾸지 않고 그대로 둬요. 그래서 분명히 false로 적어요.
+  "preview_urls": false,
+  // 대시보드에서 넣은 일반 변수를 배포할 때 지우지 않아요. (기본으로는 이 파일에 없는 변수를 지워요.)
+  //   Secret으로 넣은 비밀 값은 이 설정과 상관없이 배포해도 남아 있어요.
+  "keep_vars": true,
+  // 요청마다 걸린 CPU 시간과 오류를 대시보드(Observability)에서 볼 수 있게 기록해요(무료 플랜은 하루 20만 건까지).
+  "observability": {
+    "enabled": true
+  }
+}

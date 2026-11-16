@@ -1,0 +1,767 @@
+/**
+ * @file 전역 스타일 (app/globals.css)
+ * 읽는 순서: 7/84번째 · 3단계(화면의 뼈대와 공통 모양)
+ *   앞: src/lib/review-data.ts → 다음: src/lib/palette.ts (전체 순서와 문서 순서: docs/reading-order.md)
+ *
+ * 이 파일이 하는 일
+ *   블로그 전체의 색, 글꼴, 그리고 "형광 초록 CRT 단말기" 느낌을 내는 스타일을 정합니다.
+ *   app/layout.tsx가 한 번 불러오면 모든 페이지에 적용돼요.
+ *
+ * 디자인 콘셉트
+ *   옛날 브라운관(CRT) 모니터의 단말기 화면이에요.
+ *   - 검은 화면에 형광 초록 글자, 글자 둘레가 살짝 번지는 빛(glow)
+ *   - 화면을 가로지르는 가는 줄무늬(주사선)와 둥근 화면 모서리, 어두운 가장자리
+ *   - 고른 것·강조는 초록 바탕에 검은 글자(반전, inverse)
+ *
+ * 이 파일의 순서
+ *   1. Tailwind 불러오기
+ *   2. 색 변수(:root)
+ *   3. Tailwind 테마에 우리 색·글꼴 등록(@theme)
+ *   4. 기본 요소 스타일(@layer base)
+ *   5. CRT 화면 효과(주사선, 모서리, 그늘)
+ *   6. 우리만의 유틸리티 클래스(@utility): inverse, glow, leader
+ *   7. 여러 번 쓰는 부품 스타일(@layer components): 단추, 떠 있는 단추, 리뷰 이미지 액자, 칩, 검색 칸,
+ *      입력 칸·오류 문구, 확인 창, 로딩 UI·스켈레톤
+ *
+ * Tailwind CSS가 뭔가요?
+ *   "flex", "mt-4", "text-center"처럼 미리 만들어진 작은 클래스를 HTML에 붙여 꾸미는 도구예요.
+ *   이 파일에서는 Tailwind로 안 되는 것(CRT 효과 등)과 여러 곳에서 쓰는 우리만의 클래스를 만들어요.
+ *   이 블로그는 Tailwind v4를 써요. v4는 설정 파일(tailwind.config.js) 대신 CSS 안의 @theme·@utility 같은 규칙으로 설정해요.
+ *
+ * 이 파일에 나오는 @ 규칙 한눈에 보기
+ *   @import "tailwindcss" : Tailwind 전체(기본 스타일 + 유틸리티 클래스)를 불러와요.
+ *   @theme               : 색·글꼴·글자 크기 같은 "디자인 값"을 등록해요. 등록하면 그 이름의 클래스가 생겨요.
+ *   @layer base          : 요소(html, body, a, input…)의 기본 모양. 우선순위가 가장 낮아요.
+ *   @layer components    : 여러 번 쓰는 부품 클래스(.btn-inverse 등). base보다 높고 유틸리티보다 낮아요.
+ *   @utility             : 우리만의 유틸리티 클래스를 만들어요. hover:·sm: 같은 조건을 앞에 붙여 쓸 수 있어요.
+ *   @media               : 화면 너비·사용자 설정(동작 줄이기, 고대비 등)에 따라 다른 스타일을 줘요.
+ *   @keyframes           : 움직임(애니메이션)의 단계를 정해요.
+ *
+ * 누가 쓰나요?
+ *   app/layout.tsx가 import "./globals.css"로 한 번 불러와요. 여기서 만든 클래스는 모든 컴포넌트의 className에서 써요.
+ */
+
+/* 1. Tailwind의 기본 스타일(브라우저마다 다른 기본값을 고르게 맞추는 preflight 포함)과 모든 유틸리티 클래스를 불러와요. */
+@import "tailwindcss";
+
+/*
+ * 2. 색 변수
+ *
+ * CSS 변수(--이름: 값)는 한 번 정해 두고 var(--이름)으로 꺼내 쓰는 값이에요.
+ * 색을 변수로 두면 색을 바꿀 때 여기만 고치면 되고, 특정 영역 안에서만 다른 값으로 바꿀 수도 있어요(반전 영역처럼).
+ * :root는 문서의 맨 바깥 요소(html)를 가리켜요. 여기에 둔 변수는 페이지의 모든 요소가 물려받아 쓸 수 있어요.
+ *
+ * 인광(phosphor) 색
+ *   옛 모니터는 화면에 바른 형광 물질(인광체)에 따라 글자색이 정해졌어요. 이 블로그는 형광 초록 하나만 써요.
+ *
+ * 명도 대비(글자가 배경에서 얼마나 잘 보이는지, 접근성 기준은 4.5:1 이상)
+ *   - 글자 / 화면: 14.9
+ *   - 보조 글자 / 화면: 10.1 (검색창 안내 글자도 이 색이에요)
+ *   - 선 / 화면: 4.5
+ *   - 반전 글자 / 인광 바탕: 14.4 (오류 문구도 반전으로 보여요)
+ */
+:root {
+  /* 인광 색 묶음(기본: 형광 초록) */
+  --phosphor: #39ff14; /* 글자 */
+  --phosphor-dim: #2ad40e; /* 조금 어두운 글자(보조 글자) */
+  --phosphor-line: #178a0a; /* 어두운 색(선, 픽셀 그림의 보조색) */
+  --screen: #020802; /* 화면 바탕(인광 빛이 아주 살짝 도는 검정) */
+  --ink: #021002; /* 반전 영역의 글자색 */
+  --pixel-secondary-inverse: #158a0b; /* 반전 영역에서 쓰는 픽셀 그림의 보조색 */
+  --glow-rgb: 57 255 20; /* 빛 번짐 색(빨강 초록 파랑). rgb(var(--glow-rgb) / 0.35)처럼 투명도를 붙여 써요. */
+  --phosphor-filter: url(#crt-phosphor); /* 리뷰 이미지를 형광 초록 4단계 명암으로 칠하는 SVG 필터(app/layout.tsx) */
+  /* 단추·입력 칸·칩의 높이(44px). 손가락으로 누르기 충분한 크기(KWCAG 6.1.3)이고, 모든 조작 요소가 이 값 하나를 함께 써서
+     한 줄에 놓인 입력 칸과 단추·칩의 높이가 늘 같아요. 바꿀 때는 여기 하나만 고쳐요. */
+  --control-height: 2.75rem;
+
+  /*
+   * 쓰임에 따라 붙인 이름(역할 변수)이에요. 컴포넌트는 이 이름을 써요.
+   * 반전 영역(.inverse)에서는 이 값들을 바꿔서, 그 안의 글자·선·그림이 한꺼번에 뒤집히게 합니다.
+   * var(--screen)처럼 다른 변수를 값으로 쓰면, 원래 색은 한곳(위의 인광 색 묶음)에만 적어 두게 돼요.
+   */
+  --crt-bg: var(--screen); /* 바탕 */
+  --crt-fg: var(--phosphor); /* 글자 */
+  --crt-dim: var(--phosphor-dim); /* 보조 글자 */
+  --crt-line: var(--phosphor-line); /* 선 */
+  --pixel-secondary: var(--phosphor-line); /* 픽셀 그림의 보조색('+' 칸, components/pixel-art.tsx) */
+
+  /* 글자 둘레 빛 번짐(text-shadow). 약한 것은 본문, 강한 것은 제목에 써요.
+     값 모양: "가로 이동 세로 이동 번짐 크기 색". 쉼표로 여러 겹을 겹칠 수 있어요(강한 빛은 두 겹). */
+  --glow-soft: 0 0 4px rgb(var(--glow-rgb) / 0.35);
+  --glow-strong: 0 0 2px rgb(var(--glow-rgb) / 0.7), 0 0 12px rgb(var(--glow-rgb) / 0.45);
+
+  /* 이 사이트는 어두운 화면이라고 브라우저에 알려요. 스크롤바 등 기본 요소도 어둡게 그려져요. */
+  color-scheme: dark;
+}
+
+/*
+ * 3. Tailwind 테마에 우리 값 등록하기
+ *
+ * 여기에 --color-crt-fg를 등록하면 Tailwind가 text-crt-fg, bg-crt-fg, border-crt-fg 같은 클래스를 만들어 줘요.
+ * inline을 붙이면 클래스가 var(--crt-fg)를 그대로 가리켜서, 반전 영역에서 변수를 바꾸면 클래스 색도 따라 바뀌어요.
+ * 이름 앞부분이 클래스 종류를 정해요: --color-* → 색 클래스(text-·bg-·border-), --font-* → font- 클래스,
+ * --text-* → 글자 크기 클래스(text-big 등). --text-big--line-height처럼 "--line-height"를 붙이면 그 크기의 줄 간격도 함께 정해져요.
+ */
+@theme inline {
+  --color-crt-bg: var(--crt-bg);
+  --color-crt-fg: var(--crt-fg);
+  --color-crt-dim: var(--crt-dim);
+  --color-crt-line: var(--crt-line);
+  /* font-pixel 클래스: 갈무리11을 먼저 쓰고, 없으면 고정폭 글꼴을 써요. --font-galmuri는 app/layout.tsx가 만들어요. */
+  --font-pixel: var(--font-galmuri), ui-monospace, monospace;
+  /* font-pixel-mono 클래스: 글자 폭이 모두 같은 갈무리모노11(ASCII만). 칸을 맞춰 그린 ASCII 그림(오프라인 화면)에 써요. */
+  --font-pixel-mono: var(--font-galmuri-mono), ui-monospace, monospace;
+  /*
+   * 글자 크기 단계(계층). 픽셀 글꼴(갈무리11)은 12px 격자라 12px·24px에서 가장 또렷하고,
+   * 16px은 화소가 촘촘한 휴대폰(3배)과 150% 화면에서 또렷해요(그 밖의 화면에서는 픽셀이 조금 고르지 않을 수 있어요).
+   * 여백·칸 크기는 rem(16px 기준) 그대로라, 글자 크기와 상관없이 누르는 크기(44px)는 그대로예요.
+   *
+   *   text-big  24px  1단계(h1): 각 화면의 제목
+   *   text-logo 20px  머리글의 블로그 이름(처음 화면의 보이는 h1 역할). 왼쪽 로고 그림(24 × 22px)과 높이가 맞아 보이고, 세로 가운데가 같아요.
+   *   text-mid  16px  2단계(h2): 구역 제목(작품 목록, 글쓰기의 이미지·콘텐츠 정보, 확인 창 제목)
+   *                   그리고 처음 화면의 작품 목록 글(작품 제목 h3·한 줄 평). 목록은 한 줄 평을 읽는 곳이라 키웠어요.
+   *   기본      12px  3단계: 본문, 입력 칸 이름, 단추·칩, 작품 정보(연도·감독 또는 작가), 바닥글
+   *   (text-body는 16px 구역 안에서 다시 12px로 돌아갈 때 써요. 예: 목록의 작품 정보 줄)
+   */
+  /* rem: 문서 기본 글자 크기(16px)의 몇 배인지. 1.5rem = 24px, 1.25rem = 20px, 1rem = 16px, 0.75rem = 12px */
+  --text-big: 1.5rem;
+  --text-big--line-height: 1.25;
+  --text-logo: 1.25rem;
+  --text-logo--line-height: 1.25;
+  /* 줄 간격은 본문과 같은 1.75배(28px)예요. */
+  --text-mid: 1rem;
+  --text-mid--line-height: 1.75;
+  --text-body: 0.75rem;
+  --text-body--line-height: 1.75;
+}
+
+/*
+ * 4. 기본 요소 스타일
+ *
+ * @layer base에 넣은 스타일은 Tailwind 클래스보다 우선순위가 낮아요.
+ * 그래서 기본값을 정해 두고, 필요한 곳에서는 클래스로 쉽게 바꿀 수 있어요.
+ */
+@layer base {
+  html {
+    background: var(--screen);
+    color: var(--crt-fg);
+    font-family: var(--font-pixel);
+    /* 휴대폰을 가로로 돌렸을 때 브라우저가 글자 크기를 멋대로 키우지 않게 해요.
+       -webkit-: 사파리 등 옛 브라우저용 이름(접두사)이에요. 표준 이름과 함께 적어 두 쪽 모두에서 동작하게 해요. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* 픽셀 글꼴에는 굵게·기울임 모양이 없어요. 브라우저가 억지로 흉내 내면 글자가 뭉개져서 막아요.
+       대신 강조는 반전(초록 바탕)과 밑줄로 보여 줘요. */
+    font-synthesis: none;
+    /* 스크롤바 색(손잡이, 바탕) */
+    scrollbar-color: var(--phosphor-line) var(--screen);
+    /* 화면 아래 구석에 떠 있는 단추(로그아웃, 맨 위로)만큼 아래쪽에 여유를 둬요.
+       Tab이나 방향키로 고른 항목을 화면 안으로 스크롤할 때 이 여유를 빼고 맞춰서, 고른 항목이 단추 뒤에 숨지 않아요. */
+    scroll-padding-block-end: 5rem;
+  }
+
+  body {
+    /* 화면 높이만큼은 늘 차지해요(svh: 휴대폰 주소창을 뺀 화면 높이). */
+    min-height: 100svh;
+    background: var(--screen);
+    /* 12px 글자(갈무리11이 또렷한 크기), 줄 간격 1.75배(21px). 한글 긴 글을 읽기 편한 간격이에요. */
+    font-size: 0.75rem;
+    line-height: 1.75;
+    /* 모든 글자에 약한 빛 번짐 */
+    text-shadow: var(--glow-soft);
+    /* macOS에서 글자 가장자리를 부드럽게 다듬지 않아 픽셀이 또렷하게 보여요. */
+    -webkit-font-smoothing: none;
+    /* keep-all: 한글 낱말 중간에서 줄을 바꾸지 않아요(읽기 편해요).
+       overflow-wrap: anywhere: 그래도 너무 긴 낱말(띄어쓰기 없는 긴 제목, 주소)은 어디서든 끊어 화면 밖으로 넘치지 않게 해요. */
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /* 글자를 드래그해 고르면(선택) 반전 색으로 보여요. ::selection은 "고른 글자 부분"을 가리키는 가짜 요소예요. */
+  ::selection {
+    background: var(--phosphor);
+    color: var(--ink);
+    text-shadow: none;
+  }
+
+  /* 키보드 초점 표시. Tab으로 옮겨 다닐 때 지금 어디에 있는지 점선 테두리로 또렷하게 보여 줘요(접근성 필수!, KWCAG 6.1.2).
+     :focus-visible은 키보드로 초점을 옮겼을 때만 맞아서, 마우스로 누를 때는 테두리가 생기지 않아요.
+     outline-offset: 3px — 테두리를 요소에서 3px 띄워 그려 글자와 겹치지 않아요. */
+  :focus-visible {
+    outline: 2px dashed var(--phosphor);
+    outline-offset: 3px;
+  }
+
+  /* 링크: 글자색은 주변을 따르고, 두꺼운 밑줄로 링크임을 알려요. */
+  a {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+
+  /* 입력란·고르기 칸·글상자와 단추는 브라우저 기본 글꼴 대신 주변 글꼴(픽셀 글꼴)을 그대로 써요.
+     inherit: 부모 요소의 값을 그대로 물려받으라는 뜻이에요. 쉼표로 여러 선택자를 묶으면 같은 규칙을 함께 적용해요. */
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    text-shadow: inherit;
+  }
+
+  /*
+   * 손가락으로 쓰는 기기(휴대폰·태블릿)에서 글자를 치는 칸은 16px 글자로 써요.
+   * iOS 사파리는 16px보다 작은 입력 칸을 누르면 화면을 저절로 확대해서, 12px 그대로 두면 검색창을 누를 때마다 화면이 커져요.
+   * (휴대폰은 화소가 촘촘해서(3배) 16px도 픽셀 하나가 기기 화소 4개로 또렷하게 그려져요.)
+   * 다만 칸 안의 안내 글자(placeholder)와 고르기 칸(select, 평점)은 다른 글자와 같은 12px로 둬요.
+   * 16px로 두면 주변 글자보다 유난히 커 보여서예요. (고르기 칸은 누르면 아이폰에서 화면이 조금 확대될 수 있어요.)
+   */
+  /* pointer: coarse — 주로 쓰는 포인터가 손가락처럼 "굵고 덜 정확한" 기기일 때만 맞는 조건이에요. */
+  @media (pointer: coarse) {
+    input,
+    textarea {
+      font-size: 1rem;
+    }
+
+    /* ::placeholder: 칸이 비어 있을 때 보이는 안내 글자를 가리키는 가짜 요소예요. 글자를 치면 사라지고 16px 글자가 보여요. */
+    input::placeholder,
+    textarea::placeholder {
+      font-size: 0.75rem;
+    }
+  }
+
+  /* 검색란 오른쪽의 기본 ✕ 단추는 화면과 어울리지 않아 숨겨요. 대신 "검색 조건 지우기" 단추를 따로 둬요.
+     ::-webkit-search-cancel-button: 크롬·사파리가 검색 칸에 그리는 ✕ 단추를 가리키는 가짜 요소예요. */
+  input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  /* 입력 칸의 안내 글자(placeholder)는 보조 글자색으로 또렷하게(명도 대비 10:1). 브라우저 기본값은 흐려서 읽기 어려워요.
+     opacity: 1 — 파이어폭스는 안내 글자를 기본으로 반투명하게 그려서, 불투명으로 되돌려요. */
+  ::placeholder {
+    color: var(--crt-dim);
+    opacity: 1;
+  }
+}
+
+/*
+ * 5. CRT 화면 효과
+ *
+ * body::before와 body::after는 body 안에 CSS로 만드는 가짜 요소예요(HTML에는 없어요).
+ * 화면 전체를 덮는 투명한 막 두 장을 깔고 효과를 그려요.
+ *   - ::before: 가로 줄무늬(주사선)
+ *   - ::after : 둥근 화면 모서리, 가장자리 그늘, 은은한 초록빛
+ *
+ * pointer-events: none — 막이 화면을 덮고 있어도 클릭·글자 선택은 아래 내용으로 그대로 전달돼요.
+ * z-index: 겹친 요소 가운데 누가 위에 그려질지 정하는 숫자예요(클수록 위). 떠 있는 단추(z-[52])와 바로가기(z-[60])는 이 막보다 위예요.
+ */
+body::before,
+body::after {
+  content: ""; /* 가짜 요소는 content가 있어야 그려져요(빈 글자). */
+  position: fixed; /* 스크롤해도 화면에 고정 */
+  inset: 0; /* 위·오른쪽·아래·왼쪽 0 = 화면 전체를 덮음 */
+  pointer-events: none;
+}
+
+body::before {
+  z-index: 50; /* 내용보다 위에 */
+  /* 4px마다 1px짜리 반투명 검은 줄을 반복해 그려요(repeating-linear-gradient). 0~3px은 투명, 3~4px은 검은 줄. */
+  background: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(0 0 0 / 0.22) 3px 4px);
+}
+
+body::after {
+  z-index: 51; /* 주사선보다도 위에 */
+  /* 막의 모서리를 둥글게 깎고, 바깥쪽에 아주 두꺼운 검은 그림자(4rem)를 그려요.
+     그러면 화면 네 모서리만 검게 채워져 옛 모니터처럼 둥근 화면이 돼요.
+     box-shadow 값 모양: "가로 세로 번짐 퍼짐 색". 쉼표로 그림자 세 겹을 겹쳐요(inset이 붙으면 안쪽 그림자). */
+  border-radius: 1.5rem;
+  box-shadow:
+    0 0 0 4rem #000,
+    /* inset(안쪽 그림자): 가장자리를 살짝 어둡게 */ inset 0 0 1.5rem rgb(0 0 0 / 0.45),
+    /* 안쪽에 은은한 초록빛 */ inset 0 0 6rem rgb(var(--glow-rgb) / 0.05);
+  /* 가운데는 투명하고 바깥으로 갈수록 조금 어두워지는 그늘(비네트)
+     radial-gradient(ellipse at center, …): 가운데에서 바깥으로 퍼지는 타원형 색 변화. 62%까지는 투명, 끝(100%)에서 30% 검정 */
+  background: radial-gradient(ellipse at center, transparent 62%, rgb(0 0 0 / 0.3) 100%);
+}
+
+/* 좁은 화면(40rem = 640px 미만)에서는 모서리를 덜 둥글게 해서 글자가 가리지 않게 해요.
+   (width < 40rem): 새 미디어 쿼리 범위 문법이에요. max-width: 40rem과 비슷하지만, 40rem 딱 그 값은 빼요(미만). */
+@media (width < 40rem) {
+  body::after {
+    border-radius: 0.875rem;
+  }
+}
+
+/*
+ * 사용자가 "대비 높이기"를 켰거나(prefers-contrast: more) 윈도우 고대비 모드(forced-colors)일 때는
+ * 효과가 글자를 가릴 수 있으니 모두 꺼요. 꾸밈보다 읽기가 먼저예요.
+ */
+/* 미디어 쿼리에서 쉼표(,)는 "또는"이에요. 둘 가운데 하나만 맞아도 적용돼요. */
+@media (prefers-contrast: more), (forced-colors: active) {
+  :root {
+    --glow-soft: none;
+    --glow-strong: none;
+  }
+
+  body::before,
+  body::after,
+  .image-frame::after {
+    display: none;
+  }
+}
+
+/* 인쇄할 때도 효과를 꺼요. */
+@media print {
+  body::before,
+  body::after {
+    display: none;
+  }
+}
+
+/*
+ * 6. 우리만의 유틸리티 클래스
+ *
+ * @utility로 만든 클래스는 Tailwind 클래스처럼 hover:inverse, sm:glow처럼 앞에 조건(변형)을 붙여 쓸 수 있어요.
+ * 그냥 .inverse { … }로 만들면 이런 조건을 붙일 수 없어서, Tailwind v4에서는 @utility 이름 { … }으로 만들어요.
+ */
+
+/* inverse: 초록 바탕에 검은 글자(반전). 안쪽의 역할 변수를 바꿔 글자·선·그림 색도 함께 뒤집어요.
+   쓰는 곳: 본문 바로가기 링크(app/layout.tsx) 등. CSS 변수는 자식 요소에게 물려지므로, 이 영역 안의 text-crt-fg 같은 클래스도 함께 바뀌어요. */
+@utility inverse {
+  background-color: var(--phosphor);
+  color: var(--ink);
+  --crt-fg: var(--ink);
+  --crt-dim: var(--ink);
+  --crt-line: var(--ink);
+  --pixel-secondary: var(--pixel-secondary-inverse); /* 픽셀 그림의 보조색은 진한 인광 색 */
+  --glow-soft: none; /* 반전 영역에서는 빛 번짐이 없어야 또렷해요. */
+  --glow-strong: none;
+  text-shadow: none;
+  box-shadow: 0 0 1rem rgb(var(--glow-rgb) / 0.3); /* 바깥으로 은은한 빛 */
+
+  /* 반전 영역 안의 초점 테두리는 초록 위에서 보이도록 검게 그려요.
+     "& :focus-visible"(& 뒤 빈칸): 이 영역 "안쪽"의 초점 받은 요소를 가리켜요. */
+  & :focus-visible {
+    outline-color: var(--ink);
+  }
+}
+
+/* glow: 강한 빛 번짐. 제목처럼 눈에 띄어야 하는 글자에 써요. */
+@utility glow {
+  text-shadow: var(--glow-strong);
+}
+
+/* leader: 항목 이름과 값 사이를 잇는 점선(이름 ······ 값). flex 줄 안에서 남는 자리를 채워요.
+   쓰는 곳: 머리글(이름 ···· GitHub), 목록 제목 줄(작품 목록 ···· 전체 15편), 목록 항목(제목 ···· 평점) */
+@utility leader {
+  flex: 1 1 1.5rem; /* 늘어남 1, 줄어듦 1, 기본 크기 1.5rem: 남는 자리만큼 늘어나요. */
+  min-width: 1rem;
+  height: 0.6em; /* 아래 테두리(점선)가 글자 가운데쯤 오도록 높이를 정해요. em: 지금 글자 크기의 몇 배인지 */
+  border-bottom: 2px dotted var(--crt-line);
+}
+
+/*
+ * 7. 여러 번 쓰는 부품 스타일
+ *
+ * @layer components는 base보다 위, Tailwind 유틸리티보다 아래 우선순위예요.
+ * 그래서 부품 기본 모양을 정해 두고, 클래스로 조금씩 바꿔 쓸 수 있어요.
+ * 안쪽의 &:hover처럼 &를 쓰는 문법을 "중첩(nesting)"이라고 해요. & 자리에 바깥 선택자가 들어가요.
+ *   예: .btn-line 안의 &:hover는 .btn-line:hover와 같아요.
+ * Tailwind 유틸리티보다 낮은 까닭: className="btn-line shrink-0"처럼 유틸리티를 함께 붙이면 유틸리티가 이겨서, 조금씩 바꿔 쓰기 쉬워요.
+ */
+@layer components {
+  /* 단말기 명령 단추(초록 바탕). 누르면 1px 내려가 눌린 느낌이 나요.
+     쓰는 곳: [로그인], [리뷰 저장], [검색], 확인 창의 [삭제], 404·오프라인 화면의 [목록으로 가기] 링크 */
+  .btn-inverse {
+    display: inline-flex; /* 글줄 안에 놓이면서 안쪽 글자·그림을 가로로 나란히(flex) 놓아요. */
+    min-height: var(--control-height); /* 44px: 입력 칸·단추와 같은 높이 */
+    align-items: center; /* 안쪽을 세로 가운데로 */
+    gap: 0.5rem; /* 아이콘과 글자 사이 8px */
+    padding: 0.25rem 0.875rem; /* 위아래 4px, 좌우 14px */
+    background: var(--phosphor);
+    color: var(--ink);
+    text-shadow: none;
+    text-decoration: none; /* 링크(a)에 붙여도 밑줄이 생기지 않게 해요. */
+    box-shadow: 0 0 0.75rem rgb(var(--glow-rgb) / 0.35);
+    cursor: pointer; /* 마우스를 올리면 손가락 모양 커서 */
+
+    &:hover {
+      box-shadow: 0 0 1.25rem rgb(var(--glow-rgb) / 0.6); /* 마우스를 올리면 빛이 강해져요. */
+    }
+
+    /* :active — 마우스나 손가락으로 누르고 있는 동안 */
+    &:active {
+      translate: 0 1px; /* 누르는 동안 1px 내려가요. */
+    }
+  }
+
+  /* 선만 있는 단추. 마우스를 올리면 반전돼요.
+     쓰는 곳: [비밀번호 보기], [앱으로 설치], 확인 창의 [취소], 목록의 [더 보기], 글쓰기 화면의 [취소]·파일 고르기 단추 등 */
+  .btn-line {
+    display: inline-flex;
+    min-height: var(--control-height); /* 44px: 입력 칸·단추와 같은 높이 */
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.875rem;
+    border: 2px solid var(--crt-line);
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--phosphor);
+      background: var(--phosphor);
+      color: var(--ink);
+      text-shadow: none;
+    }
+  }
+
+  /*
+   * 아이콘만 있는 단추(목록 한 편의 수정·삭제, components/review-list-admin.tsx·delete-review.tsx)
+   * 테두리 없이 44 × 44px 누르는 자리만 두고, 가운데에 24px 픽셀 그림(lib/action-icons.ts)을 그려요.
+   * 마우스를 올리면 다른 단추처럼 반전(초록 바탕에 어두운 그림)되고, 키보드 초점은 모든 단추와 같은 점선 테두리(:focus-visible)예요.
+   */
+  .btn-icon {
+    display: inline-flex;
+    width: var(--control-height);
+    height: var(--control-height);
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--phosphor);
+      color: var(--ink);
+      text-shadow: none;
+    }
+  }
+
+  /*
+   * 화면 구석에 떠 있는 단추(components/back-to-top.tsx, floating-buttons.tsx, session-controls.tsx)
+   * 뒤로 지나가는 글이 비치지 않게 화면 바탕색을 깔고, 밝은 초록 테두리로 눈에 띄게 해요.
+   * 마우스를 올리면 반전돼요.
+   */
+  .btn-float {
+    display: inline-flex;
+    min-height: var(--control-height); /* 44px: 입력 칸·단추와 같은 높이 */
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.875rem;
+    border: 2px solid var(--phosphor);
+    background: var(--screen);
+    /* 글자색을 직접 정해요. 반전 영역(초록 바탕) 안에 놓여도 어두운 글자를 물려받아 바탕에 묻히지 않게요. */
+    color: var(--phosphor);
+    box-shadow: 0 0 0.75rem rgb(var(--glow-rgb) / 0.35);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--phosphor);
+      color: var(--ink);
+      text-shadow: none;
+    }
+  }
+
+  /*
+   * 리뷰 이미지 액자(components/review-image.tsx)
+   * 어두운 바탕과 테두리를 둬서, 반전(초록 바탕) 영역 안에 놓여도 초록 그림이 묻히지 않고 액자 경계가 보여요.
+   */
+  .image-frame {
+    position: relative; /* 아래 주사선 막(::after)이 액자 크기에 맞게 덮이는 기준 */
+    overflow: hidden; /* 넘치는 이미지를 액자 밖으로 내보내지 않아요. */
+    border: 2px solid var(--crt-line);
+    background: var(--screen);
+    box-shadow: 0 0 0.75rem rgb(var(--glow-rgb) / 0.25);
+
+    /* 그림 위에만 더 촘촘한 주사선(3px마다 1px)을 덮어 브라운관 화면처럼 보이게 해요.
+       &::after: 이 액자 안 맨 끝에 CSS로 만드는 가짜 요소. absolute + inset: 0으로 액자 전체를 덮어요. */
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0 2px, rgb(0 0 0 / 0.35) 2px 3px);
+      pointer-events: none;
+    }
+  }
+
+  /* 리뷰 이미지를 형광 초록으로: app/layout.tsx의 SVG 필터(--phosphor-filter = #crt-phosphor)를 씌우고 대비를 조금 높여요.
+     원본 파일은 그대로이고, 화면에 그릴 때만 바뀌어요.
+     filter에 여러 값을 빈칸으로 이어 쓰면 왼쪽부터 차례로 적용돼요(SVG 필터 → 대비 1.05배). */
+  .image-tint {
+    filter: var(--phosphor-filter) contrast(1.05);
+  }
+
+  /*
+   * 머리글의 링크(components/site-header.tsx의 GitHub 아이콘 링크)
+   * 단말기 메뉴처럼 테두리 없이 두고, 누르는 높이 44px와 좌우 여백 10px만 줘요.
+   */
+  .menu-link {
+    display: inline-flex;
+    min-height: var(--control-height); /* 44px: 입력 칸·단추와 같은 높이 */
+    align-items: center;
+    padding-inline: 0.625rem;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  /*
+   * 칩 모양 라디오 단추(분류·정렬 고르기, components/choice-chips.tsx)
+   *
+   * <label class="chip">
+   *   <input type="radio">            ← 진짜 라디오 단추(투명하게 칩 위에 덮어 둠)
+   *   <span class="chip-face">...</span> ← 눈에 보이는 칩 모양
+   * </label>
+   *
+   * 진짜 라디오 단추를 지우지 않고 투명하게 덮어 두는 이유:
+   * 키보드 화살표로 고르기, 화면 낭독기로 읽기 같은 기능을 브라우저가 그대로 해 주기 때문이에요.
+   */
+  .chip {
+    position: relative;
+    display: inline-flex;
+    cursor: pointer;
+
+    /* 진짜 라디오 단추: 칩 전체를 덮고(inset: 0) 투명하게(opacity: 0).
+       z-index: 1로 칩 모양보다 위에 올려, 누르는 손가락·마우스가 진짜 단추에 바로 닿게 해요. */
+    & > input {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* 눈에 보이는 칩 모양 */
+    & > .chip-face {
+      display: inline-flex;
+      min-height: var(--control-height); /* 44px: 입력 칸·단추와 같은 높이 */
+      align-items: center;
+      gap: 0.375rem;
+      /* 왼쪽·오른쪽 여백을 같게: 고르지 않은 칩은 ▶ 자리가 없어서 글자가 가운데에 놓여요. */
+      padding: 0.125rem 0.75rem;
+      border: 2px solid var(--crt-line);
+    }
+
+    /* 마우스를 올리면 테두리가 밝아져요. */
+    &:hover > .chip-face {
+      border-color: var(--phosphor);
+    }
+
+    /* 골라진 단추(:checked) 바로 뒤의 칩(+ .chip-face)을 반전시켜요.
+       "A + B": A 바로 다음 형제인 B를 가리켜요. "& > input": 이 칩의 바로 아래 자식인 input */
+    & > input:checked + .chip-face {
+      border-color: var(--phosphor);
+      background: var(--phosphor);
+      color: var(--ink);
+      text-shadow: none;
+      --crt-dim: var(--ink);
+    }
+
+    /* ▶ 표시는 고른 칩에만 보여요. 색만으로 구분하지 않게 모양으로도 알려 줘요.
+       고르지 않은 칩에서는 자리도 차지하지 않아(display: none) 글자 왼쪽이 비지 않아요. */
+    & .chip-mark {
+      display: none;
+    }
+
+    & > input:checked + .chip-face .chip-mark {
+      display: inline;
+    }
+
+    /* 진짜 단추에 키보드 초점이 오면 칩 둘레에 점선 테두리를 그려요.
+       (진짜 단추는 투명해서 그 테두리는 보이지 않으니, 눈에 보이는 칩에 대신 그려요.) */
+    & > input:focus-visible + .chip-face {
+      outline: 2px dashed var(--phosphor);
+      outline-offset: 3px;
+    }
+
+    /* 사용할 수 없는 칩(미리 만든 HTML, 저장하는 중)은 손가락 모양 커서를 보이지 않아요. */
+    & > input:disabled {
+      cursor: default;
+    }
+  }
+
+  /*
+   * 처음 화면 왼쪽의 검색 칸(components/review-browser.tsx)
+   * 넓은 화면(64rem = 1024px 이상)이면서 키도 충분할 때(40rem = 640px 이상)만, 스크롤해도 왼쪽 위에 붙어 있어요(sticky).
+   * 키가 작은 화면에서 붙여 두면 검색 칸 아래쪽(정렬)이 화면 밖으로 잘려 영영 볼 수 없어서, 그때는 함께 스크롤돼요.
+   * position: sticky — 평소엔 제자리에 있다가, 스크롤로 top 값(2rem)에 닿으면 그 자리에 붙어 있어요.
+   * align-self: start — 그리드 칸 높이만큼 늘어나지 않게 해야 붙어 있을 수 있어요.
+   */
+  @media (width >= 64rem) and (height >= 40rem) {
+    .browse-aside {
+      position: sticky;
+      top: 2rem;
+      align-self: start;
+    }
+  }
+
+  /*
+   * 글쓰기·로그인 화면의 입력 칸(input, select, textarea)
+   * 단말기처럼 어두운 바탕 + 선 테두리. 초점이 오면 테두리가 밝아지고 점선 초점 표시(:focus-visible)가 함께 보여요.
+   */
+  .field {
+    min-height: var(--control-height); /* 44px: 입력 칸·단추와 같은 높이 */
+    padding: 0.375rem 0.625rem;
+    border: 2px solid var(--crt-line);
+    background: var(--screen);
+    color: var(--crt-fg);
+
+    /* :focus — 마우스든 키보드든 초점이 오면 테두리를 밝게 해요(점선 표시는 키보드일 때만 :focus-visible로 더해져요). */
+    &:focus {
+      border-color: var(--phosphor);
+    }
+
+    /* 잘못된 값(aria-invalid="true")이면 테두리를 점선으로 바꿔요. 색이 아니라 모양으로도 알려 줘요. */
+    &[aria-invalid="true"] {
+      border-color: var(--phosphor);
+      border-style: dashed;
+    }
+
+    /* 쓸 수 없는 칸(저장하는 중 등)은 흐리게 */
+    &:disabled {
+      opacity: 0.6;
+    }
+  }
+
+  /*
+   * 칸 아래 오류 문구. 반전(초록 바탕에 검은 글자)으로 눈에 띄게 보여요. 이 블로그는 색이 하나라 빨강 대신 반전을 써요.
+   * 비어 있으면 자리를 차지하지 않아요(:empty — 안에 글자도 요소도 없을 때 맞아요).
+   * width: fit-content — 줄 전체가 아니라 글 길이만큼만 반전 바탕을 칠해요.
+   */
+  .field-error {
+    width: fit-content;
+    padding-inline: 0.5rem;
+    background: var(--phosphor);
+    color: var(--ink);
+    text-shadow: none;
+
+    &:empty {
+      display: none;
+    }
+  }
+
+  /* 칸과 상관없는 실패 알림(role="alert"). 모양은 오류 문구와 같아요. 비어 있을 때 숨기는 일은 화면 쪽(empty:sr-only)이 해요. */
+  .alert-text {
+    width: fit-content;
+    padding-inline: 0.5rem;
+    background: var(--phosphor);
+    color: var(--ink);
+    text-shadow: none;
+  }
+
+  /* 단추 모양의 파일 고르기 칸(components/review-writer.tsx). 숨긴 파일 칸에 키보드 초점이 오면 단추 둘레에 점선을 그려요. */
+  .file-button {
+    cursor: pointer;
+
+    /* :has(…) — 안에 그 조건의 요소가 있으면 맞아요. "안의 파일 칸이 키보드 초점을 받았으면"이라는 뜻이에요. */
+    &:has(:focus-visible) {
+      outline: 2px dashed var(--phosphor);
+      outline-offset: 3px;
+    }
+  }
+
+  /*
+   * 확인 창(components/delete-review.tsx)
+   * 네이티브 <dialog>라 브라우저가 화면 맨 위(top layer)에 띄워 줘요. ::backdrop은 창 뒤를 덮는 어두운 막이에요.
+   */
+  .confirm-dialog {
+    width: min(32rem, 100% - 2rem); /* 32rem(512px)과 "화면 너비 − 32px" 가운데 작은 값. 좁은 화면에서도 양옆 16px이 남아요. */
+    margin: auto; /* 화면 가운데에 놓아요. */
+    padding: 0;
+    border: 2px solid var(--phosphor);
+    background: var(--screen);
+    color: var(--crt-fg);
+    box-shadow: 0 0 1.5rem rgb(var(--glow-rgb) / 0.35);
+
+    &::backdrop {
+      background: rgb(0 0 0 / 0.85);
+    }
+
+    /* 삭제하는 동안 막힌 [취소]·[삭제](aria-disabled="true")는 흐리게 보이고, 마우스를 올려도 반전되지 않아요(pointer-events: none).
+       글자 대비는 낮아지지만, 쓸 수 없는 단추라 명도 대비 기준에서 빠져요. 진행은 바로 위 로딩 UI가 알려 줘요.
+       (disabled 대신 aria-disabled로 막아 초점이 단추에 남아요. components/delete-review.tsx) */
+    & button[aria-disabled="true"] {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
+
+  /*
+   * 로딩 UI(components/loading-status.tsx)
+   * 옛 DOS 프로그램처럼 "불러오는 중▮" 글자 옆에 16칸 진행 막대를 그려요.
+   *   - 커서(▮)는 1초에 한 번 깜빡여요. 1초에 3번보다 적어서 깜빡임 기준(KWCAG 6.3.1)에 안전해요.
+   *   - 막대는 칸이 하나씩 차오르고(2초), 다 차면 처음부터 다시 차요. 얼마나 남았는지가 아니라 "일하는 중"이라는 표시예요.
+   *   - 동작 줄이기를 켠 사용자에게는 움직이지 않게 보여 줘요(아래 prefers-reduced-motion).
+   */
+  .loading-cursor {
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    margin-left: 0.25em;
+    vertical-align: -0.125em; /* 글자 밑선에 맞춰 조금 내려요. */
+    background: currentColor; /* currentColor: 지금 글자색 그대로 칠해요. */
+    /* animation: 이름 시간 움직임 방식 반복. 아래 @keyframes loading-blink를 1초에 한 번, 끝없이(infinite) 되풀이해요.
+       step-end: 부드럽게 흐려지지 않고 켜짐 → 꺼짐으로 딱 바뀌어요(단말기 커서처럼). */
+    animation: loading-blink 1s step-end infinite;
+  }
+
+  .loading-bar {
+    display: inline-block;
+    /* 16칸 × 12px(막대 9px + 사이 3px) = 192px, 여기에 안쪽 여백과 테두리(2px씩 양쪽)를 더해요. */
+    width: calc(12rem + 8px);
+    height: 1.25rem;
+    padding: 2px;
+    border: 2px solid var(--crt-line);
+    box-shadow: 0 0 0.75rem rgb(var(--glow-rgb) / 0.25);
+
+    /* 안쪽 막대: 9px 칸과 3px 틈을 되풀이해 그리고, 오른쪽부터 가려 두었다가 한 칸씩 드러내요(clip-path). */
+    & > span {
+      display: block;
+      height: 100%;
+      background: repeating-linear-gradient(to right, var(--crt-fg) 0 9px, transparent 9px 12px);
+      clip-path: inset(0 100% 0 0); /* 보이는 영역 자르기: 위 0, 오른쪽 100%, 아래 0, 왼쪽 0 → 처음엔 전부 가려져요. */
+      /* steps(17, jump-none): 빈 막대(0칸)부터 다 찬 막대(16칸)까지 17단계로 칸 단위로 끊어 움직여요. */
+      animation: loading-fill 2s steps(17, jump-none) infinite;
+    }
+  }
+
+  /*
+   * 스켈레톤(components/skeleton.tsx): 내용이 오기 전에 자리 모양만 보여 주는 옅은 초록 막대·상자.
+   * 눈이 편하도록 움직이지 않고, 테두리 없이 아주 옅게만 칠해요. 화면에서 움직이는 것은 로딩 UI(커서·막대) 하나뿐이에요.
+   * 꾸밈이라 화면 낭독기에서는 숨겨요(aria-hidden).
+   */
+  .skeleton {
+    background-color: rgb(var(--glow-rgb) / 0.06);
+  }
+
+  /* 동작 줄이기: 커서는 켜 둔 채, 막대는 흐리게 다 찬 모양으로 멈춰요. */
+  @media (prefers-reduced-motion: reduce) {
+    .loading-cursor,
+    .loading-bar > span {
+      animation: none;
+    }
+
+    .loading-bar > span {
+      clip-path: none;
+      opacity: 0.45;
+    }
+  }
+
+  /* @keyframes 이름 { 시점 { 스타일 } }: 움직임의 단계를 정해요. 50%(절반 지점)에 투명해졌다가 돌아와 깜빡여요. */
+  @keyframes loading-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* to(끝 시점)에 자르기를 모두 풀어(inset 0) 막대가 다 보여요. 시작은 위의 clip-path 값이에요. */
+  @keyframes loading-fill {
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+}

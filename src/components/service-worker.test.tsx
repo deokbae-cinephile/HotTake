@@ -1,0 +1,197 @@
+/**
+ * @file service-worker.tsx 테스트
+ *
+ * jsdom(가짜 브라우저)에는 서비스 워커가 없어서 navigator.serviceWorker를 가짜로 만들어 확인해요.
+ *   - 운영 빌드(production)에서만 등록하는지
+ *   - 맡을 범위와 주소를 맞게 넘기는지
+ *   - 화면을 옮길 때마다(pathname이 바뀔 때마다) "지금 화면과 쓴 파일"을 서비스 워커에 보내는지
+ *
+ * usePathname은 Next.js 라우터가 있어야 동작해서, floating-buttons.test.tsx처럼 vi.mock으로 흉내 내요.
+ *
+ * 테스트 도구 문법
+ *   - vi.stubEnv("NODE_ENV", "production"): 환경 변수를 잠시 바꿔 "운영 빌드"인 척해요. vi.unstubAllEnvs()로 되돌려요.
+ *   - Object.defineProperty(navigator, "serviceWorker", …): 원래 없는 항목을 navigator에 심어요(configurable: true여야 나중에 지울 수 있어요).
+ *   - Reflect.deleteProperty(객체, 이름): 객체의 항목을 지워요(delete 연산자와 같은 일).
+ *   - vi.stubGlobal("PerformanceObserver", class {...}): 전역 클래스를 가짜로 바꿔요.
+ *   - postMessage.mock.calls[0]![0]: 가짜 함수의 첫 번째 불림에서 넘겨받은 첫 번째 값이에요.
+ *   - expect.objectContaining / expect.arrayContaining: 객체·배열에 이 항목이 "들어 있기만" 하면 맞다고 봐요.
+ */
+
+import { render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ServiceWorker } from "./service-worker";
+
+/** 가짜 usePathname이 돌려줄 주소. 테스트에서 바꿔 "화면을 옮긴" 상황을 만들어요. */
+const pathname = vi.hoisted(() => ({ current: "/" }));
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  usePathname: () => pathname.current,
+}));
+
+/**
+ * 가짜 navigator.serviceWorker를 심고, 확인에 쓸 가짜 함수들을 돌려줘요.
+ *
+ * @returns register(등록 함수)와 postMessage(메시지 보내기 함수) 가짜
+ */
+function installFakeServiceWorker() {
+  const postMessage = vi.fn();
+  const register = vi.fn(() => Promise.resolve({}));
+  Object.defineProperty(navigator, "serviceWorker", {
+    configurable: true,
+    value: { register, ready: Promise.resolve({ active: { postMessage } }) },
+  });
+  return { register, postMessage };
+}
+
+describe("ServiceWorker", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    pathname.current = "/";
+    // 심어 둔 가짜를 지워 다른 테스트에 영향을 주지 않게 해요.
+    Reflect.deleteProperty(navigator, "serviceWorker");
+  });
+
+  it("개발·테스트 환경에서는 등록하지 않는다", () => {
+    const { register, postMessage } = installFakeServiceWorker();
+    render(<ServiceWorker />);
+    expect(register).not.toHaveBeenCalled();
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it("운영 빌드에서는 블로그 전체를 맡도록 등록하고, 지금 화면을 저장해 달라고 보낸다", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { register, postMessage } = installFakeServiceWorker();
+
+    const { container } = render(<ServiceWorker />);
+
+    // 화면에는 아무것도 그리지 않아요.
+    expect(container).toBeEmptyDOMElement();
+    expect(register).toHaveBeenCalledWith("/sw.js", { scope: "/", updateViaCache: "none" });
+    // waitFor: 비동기로 일어나는 일(준비 → 메시지)이 끝날 때까지 다시 확인해요.
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "CACHE_URLS", pages: [window.location.href] }),
+      ),
+    );
+  });
+
+  it("아직 받지 않은(늦게 받는) 이미지도 함께 저장해 달라고 보낸다", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { postMessage } = installFakeServiceWorker();
+    // 화면 아래쪽의 이미지(loading="lazy"). insertAdjacentHTML("beforeend", …): body 맨 끝에 HTML을 끼워 넣어요.
+    document.body.insertAdjacentHTML("beforeend", '<img src="/images/a.jpg" alt="이미지" loading="lazy">');
+
+    render(<ServiceWorker />);
+
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ assets: expect.arrayContaining(["http://localhost:3000/images/a.jpg"]) }),
+      ),
+    );
+    // 끼워 넣은 그림을 치워 다음 테스트에 남지 않게 해요.
+    document.querySelector("img")?.remove();
+  });
+
+  it("나중에 다 받아진 파일도 이어서 알리고, 화면을 떠나면 지켜보기를 멈춘다", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { postMessage } = installFakeServiceWorker();
+
+    // 가짜 PerformanceObserver: 넘겨받은 함수(callback)를 기억해 두었다가 테스트에서 직접 불러요.
+    // `(() => {}) as (list: …) => void`: 처음엔 빈 함수지만, 나중에 넣을 함수의 모양(타입)을 미리 알려 둬요.
+    const observer = { callback: (() => {}) as (list: { getEntries: () => { name: string }[] }) => void, disconnect: vi.fn() };
+    vi.stubGlobal(
+      "PerformanceObserver",
+      class {
+        constructor(callback: typeof observer.callback) {
+          observer.callback = callback;
+        }
+        observe() {}
+        disconnect() {
+          observer.disconnect();
+        }
+      },
+    );
+
+    const { unmount } = render(<ServiceWorker />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+
+    // 큰 이미지를 다 받은 상황
+    observer.callback({ getEntries: () => [{ name: "http://localhost:3000/images/winter-stop.jpg" }] });
+    // toHaveBeenLastCalledWith: 마지막 불림이 이 값이었는지 확인해요. 화면 주소(pages)는 비우고 파일만 보내요.
+    expect(postMessage).toHaveBeenLastCalledWith({
+      type: "CACHE_URLS",
+      pages: [],
+      assets: ["http://localhost:3000/images/winter-stop.jpg"],
+    });
+
+    // unmount: 컴포넌트를 화면에서 치워요. 정리 함수가 돌아 지켜보기를 멈춰야(disconnect) 해요.
+    unmount();
+    expect(observer.disconnect).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("화면을 옮기면(링크 이동) 그 화면도 저장해 달라고 다시 보내고, 등록은 한 번만 한다", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { register, postMessage } = installFakeServiceWorker();
+
+    const { rerender } = render(<ServiceWorker />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+
+    // 다른 화면(리뷰 수정)으로 옮긴 상황: 경로가 바뀌어 다시 그려져요.
+    pathname.current = "/write/winter-stop";
+    rerender(<ServiceWorker />);
+
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
+    expect(register).toHaveBeenCalledTimes(1);
+  });
+
+  it("화면을 옮기면 지난번 뒤에 새로 받은 파일만 보낸다(저장소 상한으로 지운 파일을 다시 받지 않게)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { postMessage } = installFakeServiceWorker();
+    // 가짜 성능 기록: 처음 화면에서 받은 파일 2개
+    const entries = [{ name: "https://deokbae.blog/a.css" }, { name: "https://deokbae.blog/b.js" }];
+    // `as unknown as PerformanceEntryList`: name만 가진 가짜 목록을 진짜 성능 기록 타입으로 봐 달라고 두 번 바꿔 알려요.
+    const spy = vi.spyOn(performance, "getEntriesByType").mockImplementation(() => entries as unknown as PerformanceEntryList);
+
+    const { rerender } = render(<ServiceWorker />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+    expect(postMessage.mock.calls[0]![0].assets).toEqual(expect.arrayContaining(["https://deokbae.blog/a.css", "https://deokbae.blog/b.js"]));
+
+    // 다음 화면에서 사진 하나를 새로 받았어요. 앞의 2개는 다시 보내지 않아요.
+    entries.push({ name: "https://deokbae.blog/images/c.jpg" });
+    pathname.current = "/write/c";
+    rerender(<ServiceWorker />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
+    const assets = postMessage.mock.calls[1]![0].assets as string[];
+    expect(assets).toContain("https://deokbae.blog/images/c.jpg");
+    expect(assets).not.toContain("https://deokbae.blog/a.css");
+    // mockRestore: 바꾼 getEntriesByType을 원래대로 돌려놔요.
+    spy.mockRestore();
+  });
+
+  it("먼저 받기 시작해 늦게 끝난 파일이 기록 중간에 끼어들어도 빠뜨리지 않고, 보낸 파일은 다시 보내지 않는다", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { postMessage } = installFakeServiceWorker();
+    // 성능 기록은 "받기 시작한 순서"로 쌓여서, 늦게 끝난 파일이 나중에 앞쪽에 끼어들 수 있어요(개수로 자르면 빠뜨려요).
+    const entries = [{ name: "https://deokbae.blog/e.css" }, { name: "https://deokbae.blog/f.js" }];
+    const spy = vi.spyOn(performance, "getEntriesByType").mockImplementation(() => entries as unknown as PerformanceEntryList);
+
+    const { rerender } = render(<ServiceWorker />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(1));
+
+    // f.js보다 먼저 받기 시작했지만 늦게 끝난 큰 사진(g.jpg)은 중간에, 새로 받은 사진(h.jpg)은 끝에 들어왔어요.
+    // splice(1, 0, 값): 1번 자리에 아무것도 지우지 않고(0) 값을 끼워 넣어요.
+    entries.splice(1, 0, { name: "https://deokbae.blog/images/g.jpg" });
+    entries.push({ name: "https://deokbae.blog/images/h.jpg" });
+    pathname.current = "/write/g";
+    rerender(<ServiceWorker />);
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
+    const assets = postMessage.mock.calls[1]![0].assets as string[];
+    expect(assets).toEqual(expect.arrayContaining(["https://deokbae.blog/images/g.jpg", "https://deokbae.blog/images/h.jpg"]));
+    expect(assets).not.toContain("https://deokbae.blog/e.css");
+    expect(assets).not.toContain("https://deokbae.blog/f.js");
+    spy.mockRestore();
+  });
+});
