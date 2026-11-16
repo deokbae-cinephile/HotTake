@@ -279,6 +279,37 @@ describe("ReviewWriter(리뷰 추가)", () => {
     expect(slug).toHaveAccessibleDescription("이미 같은 파일 이름의 리뷰가 있습니다.");
     expect(screen.getByRole("button", { name: "리뷰 저장" })).toBeEnabled();
   });
+
+  describe("화면을 그리는 순서가 엇갈려도 틀린 칸으로 초점을 옮긴다", () => {
+    // 브라우저의 "다음 그림 차례"(requestAnimationFrame)와 React가 화면을 고치는 때는 순서가 정해져 있지 않아요.
+    // 컴퓨터가 바쁘면 그림 차례가 먼저 올 수 있어서, 부르자마자 바로 실행하는 가짜로 바꿔 그 순서를 늘 만들어요.
+    // (FrameRequestCallback: requestAnimationFrame에 넘기는 함수의 타입이에요.)
+    beforeEach(() => {
+      vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+        callback(0);
+        return 0;
+      });
+    });
+
+    it("화면에서 걸러 낸 비운 칸", async () => {
+      const user = userEvent.setup();
+      render(<ReviewWriter mode="create" />);
+      await user.type(screen.getByLabelText(/^제목$/), "겨울 정류장");
+      await user.click(screen.getByRole("button", { name: "리뷰 저장" }));
+      await vi.waitFor(() => expect(screen.getByLabelText(/파일 이름$/)).toHaveFocus());
+    });
+
+    it("서버가 돌려보낸 칸 오류(저장 요청의 답을 기다린 뒤)", async () => {
+      fakeServer({ status: 409, body: { message: "같은 파일 이름의 리뷰가 이미 있습니다.", errors: { slug: "이미 같은 파일 이름의 리뷰가 있습니다." } } });
+      const user = userEvent.setup();
+      render(<ReviewWriter mode="create" />);
+      await fillRequired(user);
+      await user.click(screen.getByRole("button", { name: "리뷰 저장" }));
+      const slug = screen.getByLabelText(/파일 이름$/);
+      await vi.waitFor(() => expect(slug).toHaveFocus());
+      expect(slug).toHaveAttribute("aria-invalid", "true");
+    });
+  });
 });
 
 describe("ReviewWriter(리뷰 수정)", () => {
