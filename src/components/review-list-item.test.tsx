@@ -123,6 +123,15 @@ describe("ReviewListItem", () => {
     for (const name of ["mt-auto", "sm:mt-auto", "mt-1"]) expect(row).not.toHaveClass(name);
   });
 
+  it("리뷰 한 편(article)에는 안쪽 여백(padding)이 없다(리뷰 사이는 목록의 간격으로만 띄운다)", () => {
+    const { container } = renderItem();
+    const article = container.querySelector("article")!;
+    // p-, px-, py-, pt-, pr-, pb-, pl-(sm:px-3 같은 화면 너비별 클래스 포함)로 시작하는 클래스가 하나도 없어야 해요.
+    // classList: 요소의 클래스 목록. [...]로 펼쳐 배열로 만든 뒤 filter로 안쪽 여백 클래스만 골라요.
+    const paddings = [...article.classList].filter((name) => /^([a-z]+:)*p[xytrbl]?-/.test(name));
+    expect(paddings).toEqual([]);
+  });
+
   it("글쓴이로 로그인하면 수정·삭제 아이콘 단추를 넓은 화면은 한 줄 평 줄 끝에, 휴대폰은 오른쪽 단추 칸에 둔다(방문자에게는 없다)", () => {
     // `container: guest`: 구조 분해하면서 이름을 guest로 바꿔 꺼내요(아래에서 다시 그릴 container와 헷갈리지 않게요).
     const { container: guest, unmount } = renderItem();

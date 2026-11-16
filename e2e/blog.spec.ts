@@ -311,6 +311,25 @@ test.describe("처음 화면(목록)", () => {
     await expectNoHorizontalScroll(page);
   });
 
+  test("목록 한 편(article)에는 안쪽 여백이 없어 썸네일과 글이 목록 양 끝에 맞고, 리뷰 사이는 목록 줄(li) 간격 32px로만 띄운다", async ({ page }) => {
+    await openHome(page);
+    const list = listRegion(page).getByRole("list");
+    const items = list.getByRole("listitem");
+    // 리뷰 한 편(article)의 안쪽 여백(padding)은 네 방향 모두 0이에요.
+    const padding = await items.first().getByRole("article").evaluate((article) => getComputedStyle(article).padding);
+    expect(padding).toBe("0px");
+    // 첫째 리뷰(li)의 아래 끝과 둘째 리뷰의 위 끝 사이가 32px(gap-8)이에요.
+    const first = (await items.nth(0).boundingBox())!;
+    const second = (await items.nth(1).boundingBox())!;
+    expect(Math.round(second.y - (first.y + first.height))).toBe(32);
+    // 썸네일 왼쪽 끝은 목록 왼쪽 끝에, 첫째 줄(제목 · 평점 줄) 오른쪽 끝은 목록 오른쪽 끝에 맞아요(사이 0px).
+    const listBox = (await list.boundingBox())!;
+    const thumb = (await items.first().locator(".image-frame").boundingBox())!;
+    const titleRow = (await items.first().getByRole("heading", { level: 3 }).locator("..").boundingBox())!;
+    expect(Math.round(thumb.x - listBox.x)).toBe(0);
+    expect(Math.round(listBox.x + listBox.width - (titleRow.x + titleRow.width))).toBe(0);
+  });
+
   test("바닥글: 위쪽 점선 아래 가운데에 저작권 줄('© 2026 deokbae. All rights reserved.')이 있다", async ({ page }) => {
     await openHome(page);
     const copyright = page.getByRole("contentinfo").getByText("© 2026 deokbae. All rights reserved.", { exact: true });

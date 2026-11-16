@@ -204,6 +204,14 @@ describe("ReviewBrowserView (화면)", () => {
     expect(region.querySelector("ul")).toBeInTheDocument();
     expect(region.querySelector("ol")).not.toBeInTheDocument();
   });
+
+  it("리뷰 사이는 목록(ul)의 간격 32px(gap-8) 하나로만 띄운다(<li>에는 여백을 따로 두지 않는다)", () => {
+    render(<Harness />);
+    const list = screen.getByRole("region", { name: "작품 목록" }).querySelector("ul")!;
+    expect(list).toHaveClass("grid", "gap-8");
+    // 실제 간격(px)은 CSS를 읽는 진짜 브라우저 E2E(e2e/blog.spec.ts)에서 재요. 여기서는 <li>에 클래스가 없는지만 봐요.
+    for (const item of list.querySelectorAll(":scope > li")) expect(item).not.toHaveAttribute("class");
+  });
 });
 
 describe("ReviewBrowserView (무한 스크롤)", () => {

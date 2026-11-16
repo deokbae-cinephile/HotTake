@@ -90,9 +90,11 @@ export function ReviewListItem({ review }: Props) {
         // items-stretch: 칸들이 그 줄의 높이만큼 세로로 늘어나요(그리드 기본값을 분명히 적어 뒀어요).
         // minmax(0,1fr): 남는 너비를 모두 쓰되, 긴 글자 때문에 칸이 넘치지 않게 최소 0까지 줄어들 수 있게 해요.
         // `${조건 ? A : B}`: 템플릿 문자열 안에서 조건에 따라 다른 클래스를 넣어요.
-        // 나머지: gap-x-4(칸 사이 1rem), px-3 py-3(안쪽 여백 0.75rem), outline-none(기본 초점 테두리는 지우고 아래 점선으로 대신해요)
+        // 나머지: gap-x-4(칸 사이 1rem), outline-none(기본 초점 테두리는 지우고 아래 점선으로 대신해요)
+        // 안쪽 여백(padding)은 두지 않아요. 썸네일과 글이 "작품 목록" 제목 줄의 양 끝에 맞고,
+        //   리뷰 사이는 목록(<ul>)의 간격(gap-8, 32px)으로만 띄워요(review-browser.tsx).
         // Tailwind는 클래스 이름을 글자 그대로 찾아 만들어서, 두 경우의 클래스를 통째로 적어 둬요(일부만 이어 붙이면 만들어지지 않아요).
-        className={`grid ${admin.showActions ? "grid-cols-[3.5rem_minmax(0,1fr)_2.75rem]" : "grid-cols-[3.5rem_minmax(0,1fr)]"} items-stretch gap-x-4 px-3 py-3 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crt-fg focus-visible:outline-dashed sm:grid-cols-[4.375rem_minmax(0,1fr)]`}
+        className={`grid ${admin.showActions ? "grid-cols-[3.5rem_minmax(0,1fr)_2.75rem]" : "grid-cols-[3.5rem_minmax(0,1fr)]"} items-stretch gap-x-4 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crt-fg focus-visible:outline-dashed sm:grid-cols-[4.375rem_minmax(0,1fr)]`}
       >
         {/* 왼쪽 칸: 이미지 썸네일, 휴대폰에서는 그 아래에 평점.
             이미지는 바로 옆에 제목이 있어 같은 말을 두 번 읽지 않도록 꾸밈(alt="")으로 둬요.

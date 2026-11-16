@@ -455,9 +455,10 @@ export function ReviewBrowserView({ reviews, params, onParamsChange, interactive
         {/* 결과가 있으면 목록(<ul>), 없으면 안내 상자를 보여 줘요. ref={listRef}: 위의 손잡이를 이 목록에 연결해요.
             순서가 뜻을 갖는 번호 목록이 아니라서 <ol> 대신 <ul>을 써요. 항목은 썸네일부터 시작해요. */}
         {/* `A ? B : C ? D : E`: 삼항 연산자를 이어 쓴 것. 결과가 있으면 B, 아니고 리뷰가 0편이면 D, 그 밖에는 E예요.
-            mt-4: 위 여백 1rem, grid gap-2: 리뷰 사이 0.5rem */}
+            mt-4: 위 여백 1rem, grid gap-8: 리뷰 사이 2rem(32px).
+            리뷰 한 편(<article>)에는 안쪽 여백이 없어서, 리뷰 사이는 이 간격(<li> 사이) 하나로만 정해요(review-list-item.tsx). */}
         {results.length > 0 ? (
-          <ul ref={listRef} className="mt-4 grid gap-2">
+          <ul ref={listRef} className="mt-4 grid gap-8">
             {/* key={review.slug}: 파일 이름은 리뷰마다 달라서 이름표로 쓰기 좋아요. */}
             {visible.map((review) => (
               <ReviewListItem key={review.slug} review={review} />

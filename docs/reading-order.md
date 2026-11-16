@@ -169,7 +169,7 @@ content/reviews/*.json 원고를 빌드할 때 읽고 검사해 화면이 쓰는
 | 81 | [`e2e/pwa.spec.ts`](../e2e/pwa.spec.ts) | 설치형 웹 앱 E2E |
 | 82 | [`open-next.config.ts`](../open-next.config.ts) | Cloudflare Workers용 변환 설정 |
 | 83 | [`wrangler.jsonc`](../wrangler.jsonc) | Cloudflare Workers 설정(워커 blog, 도메인) |
-| 84 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | 자동 검사와 배포(GitHub Actions) |
+| 84 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | 자동 검사·배포·릴리스(GitHub Actions) |
 
 ## 3. 읽을 때 도움이 되는 요령
 
