@@ -26,8 +26,8 @@ import { afterEach, vi } from "vitest";
 afterEach(cleanup);
 
 // jsdom(가짜 브라우저)은 화면을 실제로 그리지 않아서 스크롤 기능인 scrollIntoView가 없어요.
-// 지금 src 코드는 scrollIntoView를 부르지 않지만, 어떤 컴포넌트가 부르더라도 테스트가 "함수가 없다"는 오류로
-// 멈추지 않도록 아무 일도 하지 않는 가짜를 넣어 둬요.
+// 글쓰기 화면(components/review-writer.tsx)이 가장 위의 틀린 칸으로 옮겨 갈 때 scrollIntoView를 불러서,
+// 테스트가 "함수가 없다"는 오류로 멈추지 않도록 아무 일도 하지 않는 가짜를 넣어 둬요.
 // vi.fn(): 불려도 아무 일도 하지 않고 "몇 번, 무엇으로 불렸는지"만 기록하는 가짜 함수예요.
 // Element.prototype에 넣으면 모든 요소가 이 함수를 함께 써요.
 // typeof window !== "undefined": 서버 코드 테스트(window가 없는 node 환경)에서는 건너뛰어요.

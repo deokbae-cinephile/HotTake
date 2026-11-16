@@ -190,6 +190,8 @@ export function ReviewWriter(props: Props) {
   const [values, setValues] = useState<ReviewFormValues>(initial.values);
   // 칸별 오류 문구({ title: "제목을 입력하세요." } 같은 모양). 처음에는 빈 객체예요.
   const [errors, setErrors] = useState<FieldErrors>({});
+  // 틀린 칸으로 옮겨 갈 차례 번호. 오류를 보일 때마다 1씩 올리고, 화면을 고친 뒤 그 칸으로 초점을 옮겨요(아래 showErrors).
+  const [focusRequest, setFocusRequest] = useState(0);
   // 결과 안내(이미지 고름, 올리는 중) — role="status"
   const [notice, setNotice] = useState(initial.notice);
   // 칸과 상관없는 실패(연결 끊김, 그사이 바뀜 등) — role="alert"
@@ -363,23 +365,32 @@ export function ReviewWriter(props: Props) {
   function showErrors(next: FieldErrors) {
     setErrors(next);
     if (next.publishedAt) setFailure(`${FIELD_LABELS.publishedAt}: ${next.publishedAt}`);
-    // 오류 문구와 aria-invalid가 그려진 다음에 칸을 찾아야 해서, 다음 그림 차례로 미뤄요.
-    // requestAnimationFrame(함수): 브라우저가 다음에 화면을 그리기 직전에 함수를 불러 줘요.
-    requestAnimationFrame(() => {
-      const form = formRef.current;
-      if (!form) return;
-      // querySelector는 문서 순서로 첫 요소를 찾아요. 칸이 화면 위에서 아래(넓은 화면은 왼쪽에서 오른쪽)로 놓인 순서와 같아서,
-      // 첫 번째로 찾은 틀린 칸(aria-invalid="true")이 가장 위에 있는 칸이에요.
-      const field = form.querySelector<HTMLElement>('[aria-invalid="true"]');
-      // 칸이 없는 오류(이미지 등)만 있으면, 내용이 있는 첫 오류 문구로 옮겨 가요.
-      const target = field ?? form.querySelector<HTMLElement>(".field-error:not(:empty)");
-      if (!target) return;
-      // scrollIntoView({ block: "center" }): 그 요소가 화면 가운데쯤 오게 스크롤해요(칸 이름까지 함께 보여요).
-      target.scrollIntoView({ block: "center" });
-      // 초점도 그 칸으로 옮겨 바로 고쳐 적을 수 있게 해요. preventScroll: 위에서 스크롤했으니 한 번 더 움직이지 않게 해요.
-      field?.focus({ preventScroll: true });
-    });
+    // 오류 문구와 aria-invalid가 그려진 다음에 칸을 찾아야 해서, 여기서는 "옮겨 갈 차례"만 하나 올려 두고
+    // 실제로 옮기는 일은 React가 화면을 고친 직후에 도는 아래 useLayoutEffect가 해요.
+    // (count) => count + 1: 지금 값에 1을 더해요. 같은 오류가 다시 나도 번호가 바뀌어 다시 옮겨 가요.
+    setFocusRequest((count) => count + 1);
   }
+
+  // 틀린 칸으로 옮겨 가기: 오류를 화면에 그린 직후(칠하기 전)에 가장 위의 틀린 칸으로 스크롤하고 초점을 옮겨요.
+  // [focusRequest]: showErrors가 번호를 올릴 때마다 다시 돌아요. 처음(0)에는 아무것도 하지 않아요.
+  // useLayoutEffect는 React가 화면(DOM)을 고친 "뒤"에 늘 돌아서, 방금 그린 aria-invalid를 반드시 찾을 수 있어요.
+  //   브라우저의 다음 그림 차례(requestAnimationFrame)는 React가 화면을 고치는 때와 순서가 정해져 있지 않아,
+  //   서버 답을 기다린 뒤처럼 그림 차례가 먼저 오면 틀린 칸을 찾지 못해서 쓰지 않아요.
+  useLayoutEffect(() => {
+    if (focusRequest === 0) return;
+    const form = formRef.current;
+    if (!form) return;
+    // querySelector는 문서 순서로 첫 요소를 찾아요. 칸이 화면 위에서 아래(넓은 화면은 왼쪽에서 오른쪽)로 놓인 순서와 같아서,
+    // 첫 번째로 찾은 틀린 칸(aria-invalid="true")이 가장 위에 있는 칸이에요.
+    const field = form.querySelector<HTMLElement>('[aria-invalid="true"]');
+    // 칸이 없는 오류(이미지 등)만 있으면, 내용이 있는 첫 오류 문구로 옮겨 가요.
+    const target = field ?? form.querySelector<HTMLElement>(".field-error:not(:empty)");
+    if (!target) return;
+    // scrollIntoView({ block: "center" }): 그 요소가 화면 가운데쯤 오게 스크롤해요(칸 이름까지 함께 보여요).
+    target.scrollIntoView({ block: "center" });
+    // 초점도 그 칸으로 옮겨 바로 고쳐 적을 수 있게 해요. preventScroll: 위에서 스크롤했으니 한 번 더 움직이지 않게 해요.
+    field?.focus({ preventScroll: true });
+  }, [focusRequest]);
 
   /**
    * 저장에 실패했을 때: 칸 오류면 칸에, 아니면 알림으로 보여 주고 잠금을 풀어요.
