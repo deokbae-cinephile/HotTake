@@ -121,7 +121,7 @@ content/reviews/*.json ──next build──> lib/review-data.ts(읽기·검사
 
 ## 5. 환경 변수와 배포(Cloudflare Workers)
 
-블로그는 **Cloudflare Workers**에서 돌아요. OpenNext 어댑터(`@opennextjs/cloudflare`)가 `next build` 결과를 Workers용 코드(`.open-next/`)로 바꾸고, `wrangler.jsonc` 설정대로 올라가요. main에 커밋이 올라올 때마다(글쓰기 화면의 저장 포함) **GitHub Actions**(`.github/workflows/ci.yml`)가 검사를 돌리고, 통과하면 `deploy` 단계가 Cloudflare에 올려요.
+블로그는 **Cloudflare Workers**에서 돌아요. OpenNext 어댑터(`@opennextjs/cloudflare`)가 `next build` 결과를 Workers용 코드(`.open-next/`)로 바꾸고, `wrangler.jsonc` 설정대로 올라가요. main에 커밋이 올라올 때마다(글쓰기 화면의 저장 포함) **GitHub Actions**(`.github/workflows/ci.yml`)가 검사를 돌리고, 통과하면 `deploy` 단계가 Cloudflare에 올려요. 버전을 올린 커밋이면 이어서 `release` 단계가 태그와 릴리스를 만들어요(아래 "버전과 릴리스").
 
 | 이름 | 설명 |
 |---|---|
@@ -144,6 +144,14 @@ content/reviews/*.json ──next build──> lib/review-data.ts(읽기·검사
 - 비밀 값 바꾸기: `pnpm exec wrangler login` 뒤 `pnpm exec wrangler secret put ADMIN_PASSWORD_HASH`처럼 하나씩 넣거나, Cloudflare 대시보드 → Workers & Pages → blog → Settings → Variables and Secrets에서 바꿔요. 비밀번호를 바꿀 때는 `pnpm admin-secrets`로 새 해시를 만들어요.
 - `GITHUB_CONTENT_TOKEN`은 기한(1년)이 있어요. 기한이 지나면 저장이 실패하니, 같은 권한으로 새로 만들어 바꿔 넣어요.
 - 배포는 GitHub Actions에 맡겨요. 내 컴퓨터에서 `opennextjs-cloudflare deploy`로 직접 올리면, OpenNext가 `.env.local` 같은 `.env` 파일의 값을 워커 코드에 기본값으로 함께 넣어서 시험용 값(가짜 GitHub 주소 등)이 운영 워커에 실릴 수 있어요.
+
+**버전과 릴리스**
+
+- 버전은 [유의적 버전](https://semver.org/lang/ko/)(주.부.수)을 따라요. 화면·동작을 고치거나 다듬으면 수 버전(1.0.0 → 1.0.1), 기능을 더하면 부 버전(1.0.1 → 1.1.0), 원고 형식처럼 이전과 맞지 않게 바꾸면 주 버전(1.1.0 → 2.0.0)을 올려요.
+- 코드를 바꾸는 PR에서 `package.json`의 `version`과 `CHANGELOG.md` 맨 위 항목(`## 1.0.1 — 2026-11-16`)을 함께 올려요. 둘이 다르면 단위 테스트(`src/test/changelog.test.ts`)가 실패해요.
+- main에 올라와 배포가 끝나면 `release` 단계가 그 버전의 태그(`v1.0.1`)와 GitHub 릴리스를 만들어요. 제목은 변경 기록의 항목 제목(`1.0.1 — 2026-11-16`), 내용은 그 항목이에요. 토큰은 GitHub가 실행마다 빌려주는 것(`github.token`)을 써서 따로 넣을 값이 없어요.
+- 이미 태그가 있는 버전이면 건너뛰어요. 그래서 버전을 올리지 않는 커밋(글쓰기 화면에서 저장한 리뷰 등)은 배포만 하고 릴리스는 만들지 않아요.
+- 한 번 붙인 태그는 옮기지 않아요. 고칠 것이 생기면 다음 버전으로 올려요.
 
 **도메인(deokbae.blog)** — 도메인은 호스팅케이알(hosting.kr)에 등록돼 있고, DNS는 Cloudflare가 맡아요(네임서버 `damiete.ns.cloudflare.com`, `lovisa.ns.cloudflare.com`).
 
@@ -180,6 +188,7 @@ content/reviews/*.json ──next build──> lib/review-data.ts(읽기·검사
 - **로고:** 플로피 디스크 픽셀 그림(`lib/logo.ts`, 한 줄 평을 "기록해 저장한다"는 뜻). 머리글 로고, 파비콘(`app/icon.svg`), 설치 앱 아이콘, 공유 미리 보기 그림이 모두 같은 그림이고, 그림을 고치면 `pnpm icons`로 다시 만들어요.
 - **머리글:** 왼쪽 [로고] 작품 한 줄 평 블로그(처음 화면 링크), 오른쪽 GitHub 아이콘(`deokbae-cinephile/HotTake`, 같은 창에서 열려요. 글자 "GitHub"는 화면 낭독기만 읽어요). 탭 제목·설치 앱 이름·검색엔진의 사이트 이름은 "HotTake"예요.
 - **목록 한 편:** [썸네일 2:3 | 제목 ····· 평점 / 연도·감독 또는 작가 이름 / 한 줄 평]. 분류와 글 쓴 날은 보이지 않아요.
+  - 리뷰 한 편(`article`)에는 안쪽 여백이 없어요. 썸네일과 글이 "작품 목록" 제목 줄의 양 끝에 맞고, 리뷰 사이는 목록 줄(`li`) 간격 32px(`ul`의 `gap-8`)로만 띄워요.
   - 둘째 줄은 길면 두 줄까지만 보이고 끝을 "…"로 줄여요(`line-clamp-2`, 화면 낭독기는 다 읽어요).
   - 썸네일은 넓은 화면(640px~) 70px, 휴대폰 56px이에요. 평점은 넓은 화면에서 첫째 줄 오른쪽 끝, 휴대폰에서는 이미지 아래 가운데예요(두 자리에 하나씩 그리고 너비에 맞는 하나만 보여요).
   - 목록 위 편수 안내는 "전체 11편 / 현재 10편 표시"처럼 써요(다 보이면 "전체 11편", 거르면 "11편 중 3편").
@@ -213,7 +222,7 @@ content/reviews/*.json ──next build──> lib/review-data.ts(읽기·검사
 |---|---|
 | `pnpm lint` | oxlint(접근성 jsx-a11y·React 훅·Next.js 규칙 포함, `.oxlintrc.json`) |
 | `pnpm typecheck` | Next.js 경로 타입 만들기 + TypeScript 7 타입 검사 |
-| `pnpm test` | 단위 테스트. 원고 형식(content.test.ts), 로그인 표·비밀번호, proxy, API, 저장 로직, 화면 조각 |
+| `pnpm test` | 단위 테스트. 원고 형식(content.test.ts), 버전과 변경 기록(changelog.test.ts), 로그인 표·비밀번호, proxy, API, 저장 로직, 화면 조각 |
 | `pnpm e2e:build` → `pnpm e2e` | 시험용 원고로 빌드해 진짜 브라우저로 확인. 가짜 GitHub 서버(`e2e/mock-github.mjs`)를 함께 띄워 로그인 → 추가 → 커밋 → 수정 → 삭제까지 시험해요. 가짜 서버의 `POST /__delay?ms=`로 답을 늦춰 로딩 화면도 시험해요 |
 
 다른 프로그램이 E2E 포트(3100·3101)를 쓰고 있으면 Playwright가 그 서버를 블로그로 잘못 쓸 수 있어요. 그럴 때는 `E2E_PORT=3760 MOCK_GITHUB_PORT=3761 pnpm e2e`처럼 비어 있는 포트로 돌려요.
